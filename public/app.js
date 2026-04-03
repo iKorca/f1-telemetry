@@ -97,7 +97,8 @@ let ws;
 let reconnectTimer;
 
 function connect() {
-  ws = new WebSocket(`ws://${location.host}`);
+  const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${wsProto}://${location.host}`);
 
   ws.onopen = () => {
     setSignal('live');
