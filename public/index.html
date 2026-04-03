@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>F1 25 Telemetry</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/uplot@1.6.31/dist/uPlot.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <header id="header">
+    <div class="hgroup">
+      <span class="hlabel">TRACK</span>
+      <span id="track-name" class="hvalue">—</span>
+    </div>
+    <div class="hgroup">
+      <span class="hlabel">SESSION</span>
+      <span id="session-type" class="hvalue">—</span>
+    </div>
+    <div class="hgroup">
+      <span class="hlabel">LAP</span>
+      <span id="lap-of" class="hvalue">— / —</span>
+    </div>
+    <div class="hgroup">
+      <span class="hlabel">TIME LEFT</span>
+      <span id="countdown" class="hvalue countdown-val">—</span>
+    </div>
+    <div class="hgroup">
+      <span class="hlabel">WEATHER</span>
+      <span id="weather" class="hvalue">—</span>
+    </div>
+    <div class="hgroup">
+      <span class="hlabel">TRACK °C</span>
+      <span id="track-temp" class="hvalue">—</span>
+    </div>
+    <div class="hgroup">
+      <span class="hlabel">AIR °C</span>
+      <span id="air-temp" class="hvalue">—</span>
+    </div>
+    <div class="hgroup">
+      <span class="hlabel">DRIVER</span>
+      <span id="driver-name" class="hvalue">—</span>
+    </div>
+    <div id="safety-car-badge" class="badge sc-hidden">SC</div>
+    <button id="btn-rec-toggle" class="rec-btn rec-off" title="Toggle Recording (R)">○ REC</button>
+    <div id="signal" class="signal-off">NO SIGNAL</div>
+  </header>
+
+  <!-- ── Weather Forecast Strip ── -->
+  <div id="weather-strip">
+    <div id="weather-forecast-items"></div>
+  </div>
+
+  <!-- ── Tab Nav ── -->
+  <nav id="tabs">
+    <button class="tab-btn active" data-tab="dashboard">DASHBOARD</button>
+    <button class="tab-btn" data-tab="timing">TIMING</button>
+    <button class="tab-btn" data-tab="race">RACE</button>
+    <button class="tab-btn" data-tab="session">SESSION</button>
+    <button class="tab-btn" data-tab="history">HISTORY</button>
+    <button class="tab-btn" data-tab="settings">SETTINGS</button>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- DASHBOARD TAB                                       -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <div id="tab-dashboard" class="tab-panel active">
+    <div class="dashboard-grid">
+
+      <!-- ── LEFT: Lap times ── -->
+      <section id="lap-panel" class="panel">
+        <div class="lap-row">
+          <div class="lap-label">CURRENT</div>
+          <div id="current-lap" class="lap-time current-time">0:00.000</div>
+        </div>
+        <div class="lap-row">
+          <div class="lap-label">LAST</div>
+          <div id="last-lap" class="lap-time">—</div>
+        </div>
+        <div class="lap-row">
+          <div class="lap-label">BEST</div>
+          <div id="best-lap" class="lap-time best-time">—</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Lap Delta Bar -->
+        <div id="delta-bar-section">
+          <div class="section-label">DELTA TO BEST</div>
+          <div id="delta-bar-wrap">
+            <div id="delta-bar-neg" class="delta-half neg"></div>
+            <div id="delta-bar-center"></div>
+            <div id="delta-bar-pos" class="delta-half pos"></div>
+          </div>
+          <div id="delta-val" class="delta-value">+0.000</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="sector-row">
+          <div class="sector-col">
+            <div class="sector-label">S1</div>
+            <div id="s1-time" class="sector-time">—</div>
+          </div>
+          <div class="sector-col">
+            <div class="sector-label">S2</div>
+            <div id="s2-time" class="sector-time">—</div>
+          </div>
+          <div class="sector-col">
+            <div class="sector-label">S3</div>
+            <div id="s3-time" class="sector-time">—</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="stat-row">
+          <div class="stat">
+            <div class="stat-label">POS</div>
+            <div id="position" class="stat-value">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">GAP</div>
+            <div id="gap-leader" class="stat-value small">—</div>
+          </div>
+        </div>
+
+        <div class="stat-row">
+          <div class="stat">
+            <div class="stat-label">PIT STOPS</div>
+            <div id="pit-stops" class="stat-value">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">PENALTIES</div>
+            <div id="penalties" class="stat-value">0s</div>
+          </div>
+        </div>
+
+        <!-- Pit Window -->
+        <div id="pit-window-section">
+          <div class="section-label">PIT WINDOW</div>
+          <div id="pit-window-badge" class="pit-window-badge pw-inactive">—</div>
+        </div>
+
+        <!-- Fuel Strategy -->
+        <div id="fuel-strategy-section">
+          <div class="section-label">FUEL STRATEGY</div>
+          <div id="fuel-per-lap" class="fuel-stat">Per Lap: —</div>
+          <div id="fuel-target" class="fuel-stat">Target: —</div>
+          <div id="fuel-delta" class="fuel-stat fuel-delta">—</div>
+        </div>
+        <!-- Car Setup -->
+        <div class="divider"></div>
+        <div id="setup-section">
+          <div class="section-label setup-toggle" onclick="document.getElementById('setup-grid').classList.toggle('collapsed')">CAR SETUP ▾</div>
+          <div id="setup-grid" class="setup-grid collapsed">
+            <div class="setup-row"><span class="setup-lbl">FRONT WING</span><span id="su-front-wing" class="setup-val">—</span></div>
+            <div class="setup-row"><span class="setup-lbl">REAR WING</span><span id="su-rear-wing" class="setup-val">—</span></div>
+            <div class="setup-row"><span class="setup-lbl">DIFF ON</span><span id="su-diff-on" class="setup-val">—</span></div>
+            <div class="setup-row"><span class="setup-lbl">DIFF OFF</span><span id="su-diff-off" class="setup-val">—</span></div>
+            <div class="setup-row"><span class="setup-lbl">FRONT CAMBER</span><span id="su-front-camber" class="setup-val">—</span></div>
+            <div class="setup-row"><span class="setup-lbl">REAR CAMBER</span><span id="su-rear-camber" class="setup-val">—</span></div>
+            <div class="setup-row"><span class="setup-lbl">FRONT TOE</span><span id="su-front-toe" class="setup-val">—</span></div>
+            <div class="setup-row"><span class="setup-lbl">REAR TOE</span><span id="su-rear-toe" class="setup-val">—</span></div>
+            <div class="setup-row"><span class="setup-lbl">FRONT SUSP</span><span id="su-front-susp" class="setup-val">—</span></div>
+            <div class="setup-row"><span class="setup-lbl">REAR SUSP</span><span id="su-rear-susp" class="setup-val">—</span></div>
+            <div class="setup-row"><span class="setup-lbl">FRONT ARB</span><span id="su-front-arb" class="setup-val">—</span></div>
+            <div class="setup-row"><span class="setup-lbl">REAR ARB</span><span id="su-rear-arb" class="setup-val">—</span></div>
+            <div class="setup-row"><span class="setup-lbl">FRONT HEIGHT</span><span id="su-front-height" class="setup-val">—</span></div>
+            <div class="setup-row"><span class="setup-lbl">REAR HEIGHT</span><span id="su-rear-height" class="setup-val">—</span></div>
+            <div class="setup-row"><span class="setup-lbl">BRAKE PRES</span><span id="su-brake-pres" class="setup-val">—</span></div>
+            <div class="setup-row"><span class="setup-lbl">BRAKE BIAS</span><span id="su-brake-bias" class="setup-val">—</span></div>
+            <div class="setup-row"><span class="setup-lbl">TYRE FL</span><span id="su-tyre-fl" class="setup-val">— psi</span></div>
+            <div class="setup-row"><span class="setup-lbl">TYRE FR</span><span id="su-tyre-fr" class="setup-val">— psi</span></div>
+            <div class="setup-row"><span class="setup-lbl">TYRE RL</span><span id="su-tyre-rl" class="setup-val">— psi</span></div>
+            <div class="setup-row"><span class="setup-lbl">TYRE RR</span><span id="su-tyre-rr" class="setup-val">— psi</span></div>
+            <div class="setup-row"><span class="setup-lbl">FUEL LOAD</span><span id="su-fuel-load" class="setup-val">— kg</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── CENTER: Main gauges ── -->
+      <section id="main-panel" class="panel">
+
+        <!-- Rev lights: 3 groups of 5 -->
+        <div id="rev-lights">
+          <div class="rl" id="rl0"></div>
+          <div class="rl" id="rl1"></div>
+          <div class="rl" id="rl2"></div>
+          <div class="rl" id="rl3"></div>
+          <div class="rl" id="rl4"></div>
+          <div class="rl gap"></div>
+          <div class="rl" id="rl5"></div>
+          <div class="rl" id="rl6"></div>
+          <div class="rl" id="rl7"></div>
+          <div class="rl" id="rl8"></div>
+          <div class="rl" id="rl9"></div>
+          <div class="rl gap"></div>
+          <div class="rl" id="rl10"></div>
+          <div class="rl" id="rl11"></div>
+          <div class="rl" id="rl12"></div>
+          <div class="rl" id="rl13"></div>
+          <div class="rl" id="rl14"></div>
+        </div>
+
+        <!-- Speed + Gear + Badges -->
+        <div id="speed-gear-row">
+          <div id="speed-block">
+            <span id="speed-val">0</span>
+            <span class="unit" id="speed-unit">KM/H</span>
+          </div>
+          <div id="gear-block">
+            <span id="gear-val">N</span>
+            <div class="badges">
+              <div id="drs-badge"  class="badge">DRS</div>
+              <div id="pit-badge"  class="badge">PIT</div>
+              <div id="flag-badge" class="badge">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RPM bar -->
+        <div id="rpm-section">
+          <div id="rpm-bar-wrap">
+            <div id="rpm-bar"></div>
+          </div>
+          <div id="rpm-labels">
+            <span class="rpm-tick">0</span>
+            <span id="rpm-val">0 RPM</span>
+            <span id="rpm-max-val">— MAX</span>
+          </div>
+        </div>
+
+        <!-- G-force display -->
+        <div id="gforce-section">
+          <div id="gforce-bars">
+            <div class="gbar-row">
+              <span class="gbar-label">LAT</span>
+              <div class="gbar-wrap">
+                <div id="glat-left"  class="gbar-half left"></div>
+                <div id="glat-right" class="gbar-half right"></div>
+              </div>
+              <span id="glat-val" class="gbar-num">0.0g</span>
+            </div>
+            <div class="gbar-row">
+              <span class="gbar-label">LONG</span>
+              <div class="gbar-wrap">
+                <div id="glong-left"  class="gbar-half left"></div>
+                <div id="glong-right" class="gbar-half right"></div>
+              </div>
+              <span id="glong-val" class="gbar-num">0.0g</span>
+            </div>
+          </div>
+          <div id="gmeter-wrap">
+            <canvas id="gmeter" width="90" height="90"></canvas>
+          </div>
+        </div>
+
+        <!-- Input bars (throttle, brake, ERS, fuel) -->
+        <div id="inputs-grid">
+          <div class="input-col">
+            <div class="input-label">THROTTLE</div>
+            <div class="vbar-wrap">
+              <div id="throttle-bar" class="vbar green"></div>
+            </div>
+            <div id="throttle-val" class="input-val">0%</div>
+          </div>
+          <div class="input-col">
+            <div class="input-label">BRAKE</div>
+            <div class="vbar-wrap">
+              <div id="brake-bar" class="vbar red"></div>
+            </div>
+            <div id="brake-val" class="input-val">0%</div>
+          </div>
+          <div class="input-col">
+            <div class="input-label">ERS</div>
+            <div class="vbar-wrap">
+              <div id="ers-bar" class="vbar blue"></div>
+            </div>
+            <div id="ers-mode-val" class="input-val">—</div>
+          </div>
+          <div class="input-col">
+            <div class="input-label">FUEL</div>
+            <div class="vbar-wrap">
+              <div id="fuel-bar" class="vbar yellow"></div>
+            </div>
+            <div id="fuel-laps-val" class="input-val">— laps</div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ── RIGHT: Tyres + Damage + Track Map ── -->
+      <section id="tyre-panel" class="panel">
+
+        <!-- Track Map (minimap) -->
+        <div id="trackmap-section">
+          <div class="section-label">TRACK MAP</div>
+          <canvas id="trackmap" width="200" height="200"></canvas>
+        </div>
+
+        <div class="divider"></div>
+
+        <div id="compound-row">
+          <div id="compound-badge" class="comp-badge">—</div>
+          <div>
+            <div class="tyre-age-label">AGE</div>
+            <div id="tyre-age" class="tyre-age-val">— laps</div>
+          </div>
+        </div>
+
+        <!-- 2×2 tyre grid: FL FR top / RL RR bottom -->
+        <div id="tyre-grid">
+          <div class="tyre-corner" id="tc-fl">
+            <div class="tc-pos">FL</div>
+            <div class="tc-surf" id="fl-surf">—°</div>
+            <div class="tc-inner" id="fl-inner">—°</div>
+            <div class="tc-wear-wrap"><div class="tc-wear-bar" id="fl-wear"></div></div>
+            <div class="tc-pres" id="fl-pres">—</div>
+          </div>
+          <div class="tyre-corner" id="tc-fr">
+            <div class="tc-pos">FR</div>
+            <div class="tc-surf" id="fr-surf">—°</div>
+            <div class="tc-inner" id="fr-inner">—°</div>
+            <div class="tc-wear-wrap"><div class="tc-wear-bar" id="fr-wear"></div></div>
+            <div class="tc-pres" id="fr-pres">—</div>
+          </div>
+          <div class="tyre-corner" id="tc-rl">
+            <div class="tc-pos">RL</div>
+            <div class="tc-surf" id="rl-surf">—°</div>
+            <div class="tc-inner" id="rl-inner">—°</div>
+            <div class="tc-wear-wrap"><div class="tc-wear-bar" id="rl-wear"></div></div>
+            <div class="tc-pres" id="rl-pres">—</div>
+          </div>
+          <div class="tyre-corner" id="tc-rr">
+            <div class="tc-pos">RR</div>
+            <div class="tc-surf" id="rr-surf">—°</div>
+            <div class="tc-inner" id="rr-inner">—°</div>
+            <div class="tc-wear-wrap"><div class="tc-wear-bar" id="rr-wear"></div></div>
+            <div class="tc-pres" id="rr-pres">—</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Brake temps -->
+        <div class="section-label">BRAKE TEMPS</div>
+        <div id="brake-grid">
+          <div class="brake-item">
+            <span class="brake-pos">FL</span>
+            <span id="fl-brake" class="brake-val">—°</span>
+          </div>
+          <div class="brake-item">
+            <span class="brake-pos">FR</span>
+            <span id="fr-brake" class="brake-val">—°</span>
+          </div>
+          <div class="brake-item">
+            <span class="brake-pos">RL</span>
+            <span id="rl-brake" class="brake-val">—°</span>
+          </div>
+          <div class="brake-item">
+            <span class="brake-pos">RR</span>
+            <span id="rr-brake" class="brake-val">—°</span>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Engine + Bias -->
+        <div class="section-label">ENGINE</div>
+        <div class="stat-row">
+          <div class="stat">
+            <div class="stat-label">TEMP</div>
+            <div id="engine-temp" class="stat-value">—°C</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">BIAS</div>
+            <div id="brake-bias" class="stat-value">—%</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Wing damage -->
+        <div class="section-label">WING DAMAGE</div>
+        <div id="wing-damage-row">
+          <div class="wing-item">
+            <div class="wing-label">FL</div>
+            <div id="wing-fl" class="wing-box"></div>
+          </div>
+          <div class="wing-item">
+            <div class="wing-label">FR</div>
+            <div id="wing-fr" class="wing-box"></div>
+          </div>
+          <div class="wing-item">
+            <div class="wing-label">REAR</div>
+            <div id="wing-rear" class="wing-box"></div>
+          </div>
+        </div>
+
+      </section>
+    </div><!-- /dashboard-grid -->
+
+    <!-- Relative Timing Bar -->
+    <section id="relative-bar" class="panel">
+      <div class="section-label">RELATIVE</div>
+      <div id="relative-bar-content"></div>
+    </section>
+
+    <!-- Coaching Hints (live) -->
+    <section id="coaching-hints-live" class="panel" style="display:none;">
+      <div class="section-label">COACHING</div>
+      <div id="coaching-live-content"></div>
+    </section>
+
+  </div><!-- /tab-dashboard -->
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- TIMING TAB                                          -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <div id="tab-timing" class="tab-panel">
+    <div id="timing-tower-wrap">
+      <table id="timing-tower">
+        <thead>
+          <tr>
+            <th>POS</th>
+            <th>DRIVER</th>
+            <th>GAP LEADER</th>
+            <th>GAP AHEAD</th>
+            <th>LAST LAP</th>
+            <th>BEST LAP</th>
+            <th>TYRE</th>
+            <th>PITS</th>
+            <th>STATUS</th>
+          </tr>
+        </thead>
+        <tbody id="timing-tower-body"></tbody>
+      </table>
+    </div>
+  </div><!-- /tab-timing -->
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- RACE TAB (Race Engineer Mode)                       -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <div id="tab-race" class="tab-panel">
+    <div class="race-tab-toolbar">
+      <span class="section-label">RACE ENGINEER</span>
+      <button id="btn-race-cols" class="btn-sm" title="Toggle columns">Columns</button>
+    </div>
+    <div id="race-col-picker" class="race-col-picker" style="display:none;">
+      <label><input type="checkbox" data-col="2" checked> Last Lap</label>
+      <label><input type="checkbox" data-col="3" checked> Best Lap</label>
+      <label><input type="checkbox" data-col="4" checked> Gap Leader</label>
+      <label><input type="checkbox" data-col="5" checked> Gap Ahead</label>
+      <label><input type="checkbox" data-col="6" checked> Tyre</label>
+      <label><input type="checkbox" data-col="7" checked> Age</label>
+      <label><input type="checkbox" data-col="8" checked> Stint History</label>
+      <label><input type="checkbox" data-col="9" checked> Pits</label>
+      <label><input type="checkbox" data-col="10" checked> Status</label>
+    </div>
+    <div id="race-tower-wrap">
+      <table id="race-table">
+        <thead>
+          <tr>
+            <th>POS</th>
+            <th>DRIVER</th>
+            <th>LAST LAP</th>
+            <th>BEST LAP</th>
+            <th>GAP LEADER</th>
+            <th>GAP AHEAD</th>
+            <th>TYRE</th>
+            <th>AGE</th>
+            <th>STINT HISTORY</th>
+            <th>PITS</th>
+            <th>STATUS</th>
+          </tr>
+        </thead>
+        <tbody id="race-table-body"></tbody>
+      </table>
+    </div>
+    <!-- Pit Strategy Predictor -->
+    <div id="pit-predictor" class="panel" style="display:none;">
+      <div class="section-label">PIT STRATEGY PREDICTOR</div>
+      <div id="pit-predictor-content"></div>
+    </div>
+    <!-- Weather Impact -->
+    <div id="weather-impact" class="panel" style="display:none;">
+      <div class="section-label">WEATHER IMPACT</div>
+      <div id="weather-impact-content"></div>
+    </div>
+  </div><!-- /tab-race -->
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- CURRENT SESSION TAB                                  -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <div id="tab-session" class="tab-panel">
+    <div id="live-session-placeholder" class="empty-msg centered">
+      Not recording. Start a recording to see live session data.
+    </div>
+    <div id="live-session-detail" style="display:none;">
+      <div id="ls-header-bar" class="session-header-bar">
+        <div id="ls-track" class="sh-val big">—</div>
+        <div id="ls-type" class="sh-val">—</div>
+        <div id="ls-status" class="sh-val rec-status-live">● RECORDING</div>
+        <div id="ls-laps" class="sh-val muted">0 laps</div>
+        <div id="ls-frames" class="sh-val muted">0 frames</div>
+      </div>
+      <!-- Consistency Stats -->
+      <div id="ls-consistency-stats" class="stats-bar"></div>
+      <!-- Lap Table -->
+      <div id="ls-lap-table-wrap">
+        <table id="ls-lap-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>TIME</th>
+              <th>S1</th>
+              <th>S2</th>
+              <th>S3</th>
+              <th>COMP</th>
+              <th>AGE</th>
+              <th>MAX SPD</th>
+              <th>VALID</th>
+            </tr>
+          </thead>
+          <tbody id="ls-lap-table-body"></tbody>
+        </table>
+      </div>
+      <!-- Charts -->
+      <div id="ls-chart-section" style="display:none;">
+        <div id="ls-chart-header">
+          <span class="section-label">LAP TELEMETRY</span>
+          <select id="ls-chart-lap-select" class="settings-select"></select>
+          <select id="ls-chart-compare-select" class="settings-select">
+            <option value="">Compare with...</option>
+          </select>
+          <button id="ls-btn-close-charts" class="btn-secondary">Close Charts</button>
+        </div>
+        <div id="ls-chart-delta"></div>
+        <div id="ls-chart-speed"></div>
+        <div id="ls-chart-inputs"></div>
+        <div id="ls-chart-gear"></div>
+        <!-- Mini-Sectors -->
+        <div id="ls-mini-sectors" style="display:none;">
+          <div class="section-label">MINI-SECTORS</div>
+          <div id="ls-mini-sector-grid"></div>
+        </div>
+        <!-- Coaching Hints -->
+        <div id="ls-coaching-hints" style="display:none;">
+          <div class="section-label">COACHING</div>
+          <div id="ls-coaching-content"></div>
+        </div>
+      </div>
+      <!-- Tyre Degradation Chart -->
+      <div id="ls-chart-tyre-deg" class="chart-container"></div>
+      <!-- Fuel Burn Chart -->
+      <div id="ls-chart-fuel-burn" class="chart-container"></div>
+      <!-- Lap Time Histogram -->
+      <div id="ls-chart-histogram" class="chart-container"></div>
+      <!-- Track Map -->
+      <div id="ls-track-section" style="display:none;">
+        <div class="track-map-header">
+          <span class="section-label">TRACK MAP</span>
+          <select id="ls-track-color-channel" class="settings-select">
+            <option value="speed">Speed</option>
+            <option value="throttle">Throttle</option>
+            <option value="brake">Brake</option>
+            <option value="gear">Gear</option>
+            <option value="ers">ERS</option>
+          </select>
+        </div>
+        <canvas id="ls-track-map" width="500" height="350"></canvas>
+      </div>
+    </div>
+  </div><!-- /tab-session -->
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- HISTORY TAB                                         -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <div id="tab-history" class="tab-panel">
+    <div class="history-layout">
+
+      <!-- Sidebar: session list -->
+      <aside id="history-sidebar">
+        <div class="sidebar-header">SESSIONS</div>
+        <div id="batch-toolbar" class="batch-toolbar" style="display:none;">
+          <button id="btn-select-all" class="btn-secondary">Select All</button>
+          <button id="btn-delete-selected" class="btn-danger">Delete Selected</button>
+        </div>
+        <div id="session-list">
+          <div class="empty-msg">No sessions recorded yet.</div>
+        </div>
+      </aside>
+
+      <!-- Main area: session detail -->
+      <div id="history-main">
+        <div id="history-placeholder" class="empty-msg centered">
+          Select a session to view details
+        </div>
+        <div id="history-detail" style="display:none;">
+          <div id="session-header-bar">
+            <div id="sh-track"   class="sh-val big">—</div>
+            <div id="sh-type"    class="sh-val">—</div>
+            <div id="sh-date"    class="sh-val muted">—</div>
+            <div id="sh-best"    class="sh-val green">Best: —</div>
+            <div id="sh-laps"    class="sh-val muted">— laps</div>
+            <div class="sh-actions">
+              <button id="btn-export-csv" class="btn-secondary">Export Laps CSV</button>
+              <button id="btn-export-telemetry" class="btn-secondary">Export Telemetry</button>
+              <button id="btn-share-card" class="btn-secondary">Share Card</button>
+              <button id="btn-delete-session" class="btn-danger">Delete</button>
+            </div>
+          </div>
+          <div id="history-setup" class="history-setup" style="display:none;">
+            <div class="section-label setup-toggle" onclick="document.getElementById('history-setup-grid').classList.toggle('collapsed')">SESSION SETUP ▾</div>
+            <div id="history-setup-grid" class="setup-grid-h collapsed"></div>
+          </div>
+          <!-- Consistency Stats -->
+          <div id="consistency-stats" class="stats-bar"></div>
+          <div id="lap-table-wrap">
+            <table id="lap-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>TIME</th>
+                  <th>S1</th>
+                  <th>S2</th>
+                  <th>S3</th>
+                  <th>COMP</th>
+                  <th>AGE</th>
+                  <th>MAX SPD</th>
+                  <th>VALID</th>
+                </tr>
+              </thead>
+              <tbody id="lap-table-body"></tbody>
+            </table>
+          </div>
+          <!-- Race Analysis (shown when recording has raceData) -->
+          <div id="race-analysis" style="display:none;">
+            <div class="race-analysis-header">
+              <span class="section-label">RACE ANALYSIS</span>
+              <select id="race-metric-select" class="settings-select">
+                <option value="lapTime">Lap Time</option>
+                <option value="position">Position</option>
+                <option value="gap">Gap to Leader</option>
+                <option value="tyreAge">Tyre Age</option>
+              </select>
+            </div>
+            <div id="race-driver-checkboxes" class="race-driver-checks"></div>
+            <div id="chart-race-analysis"></div>
+          </div>
+          <!-- Setup Diff -->
+          <div id="setup-diff" style="display:none;">
+            <div class="section-label">SETUP COMPARISON</div>
+            <div id="setup-diff-grid" class="setup-diff-grid"></div>
+          </div>
+          <!-- Telemetry Charts -->
+          <div id="chart-section" style="display:none;">
+            <div id="chart-header">
+              <span class="section-label">LAP TELEMETRY</span>
+              <select id="chart-lap-select" class="settings-select"></select>
+              <select id="chart-compare-select" class="settings-select">
+                <option value="">Compare with...</option>
+                <option value="__other_session__">Other Session...</option>
+              </select>
+              <button id="btn-close-charts" class="btn-secondary">Close Charts</button>
+            </div>
+            <div id="chart-delta"></div>
+            <div id="chart-speed"></div>
+            <div id="chart-inputs"></div>
+            <div id="chart-gear"></div>
+            <div id="chart-tyres"></div>
+            <!-- Mini-Sectors -->
+            <div id="mini-sectors" style="display:none;">
+              <div class="section-label">MINI-SECTORS</div>
+              <div id="mini-sector-grid"></div>
+            </div>
+            <!-- Coaching Hints -->
+            <div id="coaching-hints" style="display:none;">
+              <div class="section-label">COACHING</div>
+              <div id="coaching-content"></div>
+            </div>
+            <!-- Variance overlay button -->
+            <div id="variance-controls" style="display:none;">
+              <button id="btn-show-all-laps" class="btn-sm">Show All Laps</button>
+            </div>
+          </div>
+          <!-- Tyre Degradation Chart -->
+          <div id="chart-tyre-deg" class="chart-container"></div>
+          <!-- Fuel Burn Chart -->
+          <div id="chart-fuel-burn" class="chart-container"></div>
+          <!-- Lap Time Histogram -->
+          <div id="chart-histogram" class="chart-container"></div>
+          <!-- History Track Map -->
+          <div id="history-track-section" style="display:none;">
+            <div class="track-map-header">
+              <span class="section-label">TRACK MAP</span>
+              <select id="track-color-channel" class="settings-select">
+                <option value="speed">Speed</option>
+                <option value="throttle">Throttle</option>
+                <option value="brake">Brake</option>
+                <option value="gear">Gear</option>
+                <option value="ers">ERS</option>
+              </select>
+            </div>
+            <canvas id="history-track-map" width="500" height="350"></canvas>
+          </div>
+          <!-- Driver Comparison (race data) -->
+          <div id="driver-compare-section" style="display:none;">
+            <div class="driver-compare-header">
+              <span class="section-label">DRIVER COMPARISON</span>
+              <select id="driver-compare-a" class="settings-select"></select>
+              <span class="vs-label">vs</span>
+              <select id="driver-compare-b" class="settings-select"></select>
+            </div>
+            <div id="driver-compare-chart"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /tab-history -->
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- SETTINGS TAB                                        -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <div id="tab-settings" class="tab-panel">
+    <div class="settings-layout">
+
+      <!-- Connection -->
+      <div class="settings-card">
+        <div class="settings-card-title">Connection</div>
+        <div class="settings-row">
+          <label class="settings-label">UDP Port</label>
+          <div class="settings-control">
+            <input type="number" id="s-udp-port" class="settings-input" value="20777" min="1024" max="65535">
+            <span class="settings-note">restart required</span>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label class="settings-label">HTTP Port</label>
+          <div class="settings-control">
+            <input type="number" id="s-http-port" class="settings-input" value="3000" min="1024" max="65535">
+            <span class="settings-note">restart required</span>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label class="settings-label">Speed Unit</label>
+          <div class="settings-control">
+            <select id="s-speed-unit" class="settings-select">
+              <option value="kmh">km/h</option>
+              <option value="mph">mph</option>
+            </select>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label class="settings-label">Local IPs</label>
+          <div id="local-ips" class="settings-ips">loading...</div>
+        </div>
+      </div>
+
+      <!-- Recording -->
+      <div class="settings-card">
+        <div class="settings-card-title">Recording</div>
+        <div class="settings-row">
+          <label class="settings-label">Auto-record sessions</label>
+          <div class="settings-control">
+            <label class="toggle">
+              <input type="checkbox" id="s-auto-record">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label class="settings-label">Capture frame data</label>
+          <div class="settings-control">
+            <label class="toggle">
+              <input type="checkbox" id="s-capture-frames">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label class="settings-label">Frame interval</label>
+          <div class="settings-control">
+            <select id="s-frame-interval" class="settings-select">
+              <option value="1">1 — 60 fps</option>
+              <option value="2">2 — 30 fps</option>
+              <option value="3" selected>3 — 20 fps</option>
+              <option value="5">5 — 12 fps</option>
+            </select>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label class="settings-label">Max sessions to keep</label>
+          <div class="settings-control">
+            <input type="number" id="s-max-sessions" class="settings-input" value="50" min="1" max="500">
+          </div>
+        </div>
+      </div>
+
+      <!-- Display -->
+      <div class="settings-card">
+        <div class="settings-card-title">Display</div>
+        <div class="settings-row">
+          <label class="settings-label">Show track map</label>
+          <div class="settings-control">
+            <label class="toggle">
+              <input type="checkbox" id="s-show-trackmap" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label class="settings-label">Notification sounds</label>
+          <div class="settings-control">
+            <label class="toggle">
+              <input type="checkbox" id="s-notifications">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Remote Access -->
+      <div class="settings-card">
+        <div class="settings-card-title">Remote Access (Internet Tunnel)</div>
+        <div class="settings-row">
+          <label class="settings-label">Subdomain (optional)</label>
+          <div class="settings-control">
+            <input type="text" id="s-tunnel-subdomain" class="settings-input" placeholder="my-f1-dash">
+            <span class="settings-note">.loca.lt</span>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label class="settings-label">Tunnel</label>
+          <div class="settings-control">
+            <button id="btn-tunnel-toggle" class="btn-secondary">Start Tunnel</button>
+            <span id="tunnel-url-display" class="tunnel-url"></span>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div></div>
+          <div class="settings-note wide">
+            The tunnel makes your dashboard accessible from anywhere on the internet via a public URL.
+            Uses <a href="https://localtunnel.me" target="_blank" rel="noreferrer">localtunnel.me</a> — no account required.
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-save-row">
+        <button id="btn-save-settings" class="btn-primary large">Save Settings</button>
+        <span id="settings-save-status"></span>
+      </div>
+
+      <!-- Keyboard Shortcuts -->
+      <div class="settings-card">
+        <div class="settings-card-title">Keyboard Shortcuts</div>
+        <div class="shortcut-list">
+          <div class="shortcut-item"><kbd>1</kbd> Dashboard</div>
+          <div class="shortcut-item"><kbd>2</kbd> Timing</div>
+          <div class="shortcut-item"><kbd>3</kbd> Race</div>
+          <div class="shortcut-item"><kbd>4</kbd> History</div>
+          <div class="shortcut-item"><kbd>5</kbd> Settings</div>
+          <div class="shortcut-item"><kbd>R</kbd> Toggle Recording</div>
+          <div class="shortcut-item"><kbd>F</kbd> Fullscreen</div>
+          <div class="shortcut-item"><kbd>?</kbd> Show Shortcuts</div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /tab-settings -->
+
+  <!-- ── Keyboard Shortcuts Overlay ── -->
+  <div id="shortcuts-overlay" class="overlay-hidden">
+    <div class="overlay-content">
+      <h3>KEYBOARD SHORTCUTS</h3>
+      <div class="shortcut-grid">
+        <div class="shortcut-item"><kbd>1</kbd> Dashboard</div>
+        <div class="shortcut-item"><kbd>2</kbd> Timing</div>
+        <div class="shortcut-item"><kbd>3</kbd> Race</div>
+        <div class="shortcut-item"><kbd>4</kbd> History</div>
+        <div class="shortcut-item"><kbd>5</kbd> Settings</div>
+        <div class="shortcut-item"><kbd>R</kbd> Toggle Recording</div>
+        <div class="shortcut-item"><kbd>F</kbd> Fullscreen</div>
+        <div class="shortcut-item"><kbd>?</kbd> Close</div>
+      </div>
+      <button class="btn-secondary" onclick="document.getElementById('shortcuts-overlay').classList.add('overlay-hidden')">Close</button>
+    </div>
+  </div>
+
+  <!-- ── Lap Context Menu ── -->
+  <div id="lap-context-menu" class="context-menu hidden">
+    <div class="context-menu-item" data-action="delete">Delete Lap</div>
+    <div class="context-menu-item" data-action="toggle-valid">Toggle Valid/Invalid</div>
+    <div class="context-menu-item" data-action="add-note">Add Note</div>
+    <div class="context-menu-item" data-action="compare">Compare With</div>
+    <div class="context-menu-item" data-action="export-lap">Export Lap CSV</div>
+  </div>
+
+  <!-- ── Cross-Session Compare Modal ── -->
+  <div id="compare-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h3>COMPARE WITH OTHER SESSION</h3>
+      <div class="modal-body">
+        <label class="settings-label">Session</label>
+        <select id="compare-modal-session" class="settings-select"></select>
+        <label class="settings-label" style="margin-top:0.8rem;">Lap</label>
+        <select id="compare-modal-lap" class="settings-select"></select>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-compare-confirm" class="btn-primary">Compare</button>
+        <button id="btn-compare-cancel" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/uplot@1.6.31/dist/uPlot.iife.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

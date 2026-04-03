@@ -1,0 +1,6 @@
+node_modules/
+data/recordings/
+data/tracks/
+.DS_Store
+*.log
+.claude/
