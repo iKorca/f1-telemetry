@@ -3769,6 +3769,7 @@ async function loadLiveSession() {
       el('live-session-detail').style.display = 'none';
       _liveSession = null;
       _liveSessionLapCount = 0;
+      _liveSetupRendered = false;
       return;
     }
     el('live-session-placeholder').style.display = 'none';
@@ -3782,6 +3783,9 @@ async function loadLiveSession() {
     setText('ls-laps', (session.laps?.length || 0) + ' laps');
     setText('ls-frames', (session.frames?.length || 0) + ' frames');
 
+    // Render setup (once, when available)
+    renderLiveSetup(session);
+
     // Only re-render lap table if lap count changed
     const newLapCount = session.laps?.length || 0;
     if (newLapCount !== _liveSessionLapCount) {
@@ -3792,6 +3796,36 @@ async function loadLiveSession() {
   } catch (err) {
     console.error('loadLiveSession error:', err);
   }
+}
+
+let _liveSetupRendered = false;
+function renderLiveSetup(session) {
+  if (_liveSetupRendered) return;
+  const container = el('ls-setup');
+  const grid = el('ls-setup-grid');
+  if (!container || !grid) return;
+
+  const s = session.setup;
+  if (!s) { container.style.display = 'none'; return; }
+
+  _liveSetupRendered = true;
+  container.style.display = '';
+  const rows = [
+    ['Front Wing', s.frontWing], ['Rear Wing', s.rearWing],
+    ['Diff On', s.onThrottle + '%'], ['Diff Off', s.offThrottle + '%'],
+    ['Front Camber', s.frontCamber?.toFixed(2) + '°'], ['Rear Camber', s.rearCamber?.toFixed(2) + '°'],
+    ['Front Toe', s.frontToe?.toFixed(4) + '°'], ['Rear Toe', s.rearToe?.toFixed(4) + '°'],
+    ['Front Susp', s.frontSuspension], ['Rear Susp', s.rearSuspension],
+    ['Front ARB', s.frontAntiRollBar], ['Rear ARB', s.rearAntiRollBar],
+    ['Front Height', s.frontSuspensionHeight], ['Rear Height', s.rearSuspensionHeight],
+    ['Brake Pres', s.brakePressure + '%'], ['Brake Bias', s.brakeBias + '%'],
+    ['Tyre FL', s.frontLeftTyrePressure?.toFixed(1) + ' psi'], ['Tyre FR', s.frontRightTyrePressure?.toFixed(1) + ' psi'],
+    ['Tyre RL', s.rearLeftTyrePressure?.toFixed(1) + ' psi'], ['Tyre RR', s.rearRightTyrePressure?.toFixed(1) + ' psi'],
+    ['Fuel Load', s.fuelLoad?.toFixed(1) + ' kg'],
+  ];
+  grid.innerHTML = rows.map(([lbl, val]) =>
+    `<div class="setup-row"><span class="setup-lbl">${lbl}</span><span class="setup-val">${val ?? '—'}</span></div>`
+  ).join('');
 }
 
 function renderLiveSessionLaps(session) {
