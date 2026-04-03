@@ -493,6 +493,8 @@ function parseParticipants(buf, header) {
     let name = '';
     if (nameStart + 48 <= buf.length) {
       name = buf.subarray(nameStart, nameStart + 48).toString('utf8').replace(/\0/g, '').trim();
+      // Strip non-printable chars, platform icons, and trailing garbage after semicolons
+      name = name.replace(/[^\x20-\x7E]/g, '').replace(/\s*;.*$/, '').trim();
     }
 
     participants.push({

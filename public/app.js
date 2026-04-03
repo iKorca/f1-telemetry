@@ -2315,8 +2315,8 @@ function downloadCSV(csv, filename) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 function initBatchSelect() {
-  const selectAllBtn = el('batch-select-all');
-  const deleteBtn    = el('batch-delete');
+  const selectAllBtn = el('btn-select-all');
+  const deleteBtn    = el('btn-delete-selected');
   if (selectAllBtn) {
     selectAllBtn.addEventListener('click', () => {
       const cbs = document.querySelectorAll('.session-cb');
@@ -2473,8 +2473,10 @@ function renderRaceAnalysis(session) {
   const container = el('race-analysis');
   if (!container) return;
 
+  // Only show race analysis for actual race sessions (not Time Trial / Practice)
   const rd = session.raceData;
-  if (!rd || !rd.carLaps || Object.keys(rd.carLaps).length === 0) {
+  const isRace = /race|sprint/i.test(session.sessionType || '');
+  if (!isRace || !rd || !rd.carLaps || Object.keys(rd.carLaps).length < 2) {
     container.style.display = 'none';
     return;
   }
@@ -3298,8 +3300,10 @@ function renderDriverComparison(session) {
   const section = el('driver-compare-section');
   if (!section) return;
 
+  // Only show for race sessions with multiple drivers
   const rd = session.raceData;
-  if (!rd || !rd.carLaps || Object.keys(rd.carLaps).length < 2) {
+  const isRace = /race|sprint/i.test(session.sessionType || '');
+  if (!isRace || !rd || !rd.carLaps || Object.keys(rd.carLaps).length < 2) {
     section.style.display = 'none'; return;
   }
   section.style.display = '';
