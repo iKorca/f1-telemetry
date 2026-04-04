@@ -1,0 +1,28 @@
+.sidebar {
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+}
+
+.header {
+  padding: 0.7rem 1rem;
+  font-family: var(--font-d);
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
+  color: var(--grey);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.empty {
+  color: var(--grey);
+  font-size: 0.75rem;
+  padding: 1.5rem 1rem;
+}

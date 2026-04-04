@@ -1,0 +1,22 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--grey);
+  font-family: var(--font-d);
+  font-size: 0.85rem;
+  letter-spacing: 0.15em;
+}
+
+.analysisSection {
+  padding: 0 1.2rem 1rem;
+}

@@ -1,0 +1,57 @@
+.container {
+  padding: 0.8rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  gap: 3px;
+}
+
+.cell {
+  text-align: center;
+  padding: 0.3rem 0.2rem;
+  border-radius: 3px;
+  font-size: 0.62rem;
+  font-family: var(--font-d);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.num {
+  color: var(--grey);
+  font-size: 0.5rem;
+}
+
+.time {
+  font-size: 0.7rem;
+  color: var(--white);
+}
+
+.delta {
+  font-size: 0.55rem;
+  margin-top: 1px;
+}
+
+.faster {
+  background: rgba(57, 211, 83, 0.12);
+  border-color: rgba(57, 211, 83, 0.3);
+}
+
+.faster .delta {
+  color: var(--green);
+}
+
+.slower {
+  background: rgba(232, 0, 45, 0.12);
+  border-color: rgba(232, 0, 45, 0.3);
+}
+
+.slower .delta {
+  color: var(--red);
+}

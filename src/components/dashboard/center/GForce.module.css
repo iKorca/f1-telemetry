@@ -1,0 +1,75 @@
+.gforceSection {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+  align-items: center;
+}
+
+.gforceBars {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gbarRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gbarLabel {
+  font-family: var(--font-d);
+  font-size: 0.50rem;
+  color: var(--grey);
+  letter-spacing: 0.12em;
+  width: 30px;
+  flex-shrink: 0;
+}
+
+.gbarWrap {
+  flex: 1;
+  height: 10px;
+  background: #10101e;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
+
+.gbarHalf {
+  width: 0%;
+  height: 100%;
+  transition: width 0.06s linear;
+}
+
+.gbarLeft {
+  composes: gbarHalf;
+  background: var(--blue);
+  margin-left: auto;
+  border-radius: 5px 0 0 5px;
+}
+
+.gbarRight {
+  composes: gbarHalf;
+  background: var(--orange);
+  border-radius: 0 5px 5px 0;
+}
+
+.gbarNum {
+  font-family: var(--font-d);
+  font-size: 0.6rem;
+  color: var(--white);
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.gmeterWrap {
+  flex-shrink: 0;
+}
+
+.gmeter {
+  display: block;
+}

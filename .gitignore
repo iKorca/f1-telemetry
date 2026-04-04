@@ -1,4 +1,5 @@
 node_modules/
+dist/
 data/recordings/
 data/tracks/
 .DS_Store

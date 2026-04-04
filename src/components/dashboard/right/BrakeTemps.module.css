@@ -1,0 +1,24 @@
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px 8px;
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pos {
+  font-size: 0.58rem;
+  color: var(--grey);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.val {
+  font-family: var(--font-d);
+  font-size: 0.78rem;
+  transition: color 0.25s;
+}

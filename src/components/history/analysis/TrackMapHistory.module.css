@@ -1,0 +1,22 @@
+.section {
+  margin-top: 1rem;
+  padding: 0.8rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.canvas {
+  width: 100%;
+  max-width: 500px;
+  height: 300px;
+  background: #07070e;
+  border-radius: 6px;
+}

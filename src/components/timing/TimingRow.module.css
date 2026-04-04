@@ -1,0 +1,84 @@
+/* TimingRow styles - ported from public/style.css timing tower */
+
+.row td {
+  padding: 0.4rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--white);
+  white-space: nowrap;
+}
+
+.row:hover td {
+  background: #141428;
+}
+
+/* Player highlight */
+.player td {
+  background: rgba(232, 0, 45, 0.08);
+}
+
+/* Fastest lap */
+.fastest td {
+  color: var(--purple);
+}
+
+/* Pit lane */
+.pit td {
+  color: var(--yellow);
+}
+
+/* Retired / DNF */
+.retired td {
+  color: var(--grey);
+  opacity: 0.6;
+}
+
+.pos {
+  font-weight: 900;
+  font-size: 0.82rem;
+  min-width: 2em;
+  text-align: center;
+}
+
+/* Team color left border on driver name cell */
+.driver {
+  border-left: 3px solid transparent;
+  padding-left: 0.6rem;
+}
+
+.compound {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.52rem;
+  font-weight: 700;
+}
+
+.compound.soft {
+  background: #c0392b;
+  color: #fff;
+}
+
+.compound.medium {
+  background: #d4a017;
+  color: #000;
+}
+
+.compound.hard {
+  background: #c8ccd0;
+  color: #000;
+}
+
+.compound.inter {
+  background: #1a7a3a;
+  color: #fff;
+}
+
+.compound.wet {
+  background: #1a4a8a;
+  color: #fff;
+}
+
+/* Best lap highlighted in green */
+.bestLap {
+  color: var(--green);
+}

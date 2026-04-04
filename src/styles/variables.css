@@ -1,0 +1,17 @@
+/* ── CSS Custom Properties ─────────────────────────────────────────────────── */
+:root {
+  --bg:         #07070e;
+  --panel:      #0d0d1a;
+  --border:     #1c1c2e;
+  --red:        #e8002d;
+  --green:      #39d353;
+  --yellow:     #f5c518;
+  --orange:     #f07010;
+  --blue:       #3b82f6;
+  --purple:     #9b59b6;
+  --white:      #f0f0f0;
+  --grey:       #555575;
+  --grey-light: #9090b0;
+  --font-d:     'Orbitron', monospace;
+  --font-u:     'Rajdhani', sans-serif;
+}

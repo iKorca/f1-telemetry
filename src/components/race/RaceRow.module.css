@@ -1,0 +1,25 @@
+.player td {
+  background: rgba(232, 0, 45, 0.08);
+}
+
+.pit td {
+  color: var(--yellow);
+}
+
+.retired td {
+  color: var(--grey);
+  opacity: 0.6;
+}
+
+.tyreDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.stintCell {
+  padding: 0.4rem 0.8rem;
+}

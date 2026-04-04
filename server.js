@@ -32,7 +32,10 @@ const server = http.createServer(app);
 const wss    = new WebSocket.Server({ server });
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve React build if it exists, otherwise fall back to legacy public/
+const distPath = path.join(__dirname, 'dist');
+const publicPath = path.join(__dirname, 'public');
+app.use(express.static(fs.existsSync(distPath) ? distPath : publicPath));
 
 // ─── Telemetry state ──────────────────────────────────────────────────────────
 

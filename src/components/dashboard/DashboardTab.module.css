@@ -1,0 +1,15 @@
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: 260px 1fr 260px;
+  flex: 1;
+  gap: 1px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}

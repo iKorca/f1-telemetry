@@ -1,0 +1,40 @@
+/* TimingTab styles - ported from public/style.css timing tower section */
+
+.wrap {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+  height: 100%;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-d);
+  font-size: 0.68rem;
+}
+
+.table th {
+  text-align: left;
+  padding: 0.5rem 0.8rem;
+  color: var(--grey);
+  letter-spacing: 0.12em;
+  border-bottom: 2px solid var(--border);
+  font-weight: 700;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 1;
+}
+
+.empty {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--grey);
+  font-family: var(--font-d);
+  font-size: 0.9rem;
+  letter-spacing: 0.15em;
+}

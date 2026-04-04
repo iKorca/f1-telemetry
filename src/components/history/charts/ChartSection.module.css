@@ -1,0 +1,28 @@
+.section {
+  padding: 1rem 1.2rem;
+  border-top: 1px solid var(--border);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.header .sectionLabel {
+  flex-shrink: 0;
+}
+
+.chartBox {
+  margin-bottom: 0.8rem;
+  background: #10101e;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.varianceControls {
+  padding: 0.4rem 0;
+}

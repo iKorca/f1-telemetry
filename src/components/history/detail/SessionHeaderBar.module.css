@@ -1,0 +1,35 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 0.8rem 1.2rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.val {
+  font-family: var(--font-d);
+  font-size: 0.72rem;
+  color: var(--white);
+}
+
+.big {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.muted {
+  color: var(--grey-light);
+}
+
+.green {
+  color: var(--green);
+}
+
+.actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}

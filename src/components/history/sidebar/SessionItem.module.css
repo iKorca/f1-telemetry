@@ -1,0 +1,60 @@
+.item {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.item:hover {
+  background: #141428;
+}
+
+.active {
+  background: #1a1a35;
+  border-left: 3px solid var(--red);
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.checkbox {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--red);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.track {
+  font-family: var(--font-d);
+  font-size: 0.72rem;
+  color: var(--white);
+}
+
+.type {
+  font-size: 0.65rem;
+  color: var(--grey-light);
+  margin-top: 2px;
+}
+
+.date {
+  font-size: 0.60rem;
+  color: var(--grey);
+  margin-top: 2px;
+}
+
+.stats {
+  font-family: var(--font-d);
+  font-size: 0.60rem;
+  color: var(--green);
+  margin-top: 3px;
+}

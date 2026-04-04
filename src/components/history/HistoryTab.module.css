@@ -1,0 +1,27 @@
+.layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  height: 100%;
+  gap: 0;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main {
+  background: var(--bg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 768px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}

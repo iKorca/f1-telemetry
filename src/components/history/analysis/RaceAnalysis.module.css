@@ -1,0 +1,41 @@
+.container {
+  padding: 1rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.driverChecks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 0.8rem;
+}
+
+.driverLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-d);
+  font-size: 0.60rem;
+  color: var(--grey-light);
+  cursor: pointer;
+  padding-left: 4px;
+}
+
+.driverLabel input[type='checkbox'] {
+  accent-color: var(--red);
+}
+
+.chartBox {
+  background: #10101e;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}

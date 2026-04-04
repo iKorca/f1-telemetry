@@ -1,0 +1,48 @@
+.wrapper {
+  margin: 0.5rem 1rem;
+}
+
+.label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--grey);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+.entry {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.7rem;
+}
+
+.entry:last-child {
+  border-bottom: none;
+}
+
+.lap {
+  color: var(--dim);
+  width: 3.5em;
+}
+
+.cond {
+  flex: 1;
+}
+
+.delta {
+  font-family: var(--font-d);
+  width: 5em;
+  text-align: right;
+}
+
+.faster {
+  color: var(--green);
+}
+
+.slower {
+  color: var(--red);
+}

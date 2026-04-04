@@ -1,0 +1,38 @@
+.wrapper {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-d);
+  font-size: 0.68rem;
+}
+
+.table th {
+  text-align: left;
+  padding: 0.5rem 0.8rem;
+  color: var(--grey);
+  letter-spacing: 0.12em;
+  border-bottom: 2px solid var(--border);
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 1;
+}
+
+.table td {
+  padding: 0.4rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--white);
+  white-space: nowrap;
+}
+
+.table tr:hover td {
+  background: #141428;
+}

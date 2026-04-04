@@ -1,0 +1,13 @@
+.stintBar {
+  display: flex;
+  height: 14px;
+  gap: 1px;
+  min-width: 60px;
+  max-width: 200px;
+}
+
+.stintSeg {
+  height: 100%;
+  border-radius: 2px;
+  min-width: 4px;
+}

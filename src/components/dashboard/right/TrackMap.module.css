@@ -1,0 +1,13 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.canvas {
+  display: block;
+  background: #10101e;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}

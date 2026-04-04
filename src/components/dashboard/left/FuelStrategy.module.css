@@ -1,0 +1,24 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fuelStat {
+  font-family: var(--font-d);
+  font-size: 0.62rem;
+  color: var(--grey-light);
+}
+
+.fuelDelta {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.fuelSurplus {
+  color: var(--green);
+}
+
+.fuelDeficit {
+  color: var(--red);
+}

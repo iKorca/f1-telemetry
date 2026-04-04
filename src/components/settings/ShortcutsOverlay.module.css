@@ -1,0 +1,73 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.content {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 420px;
+  width: 90%;
+}
+
+.title {
+  font-family: var(--font-d);
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  color: var(--white);
+  margin-bottom: 1.2rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+  margin-bottom: 1.2rem;
+}
+
+.item {
+  font-size: 0.72rem;
+  color: var(--grey-light);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kbd {
+  display: inline-block;
+  background: #1a1a30;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-family: var(--font-d);
+  font-size: 0.58rem;
+  color: var(--white);
+  min-width: 24px;
+  text-align: center;
+}
+
+.btnSecondary {
+  background: #1a1a30;
+  color: var(--grey-light);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--font-d);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btnSecondary:hover {
+  background: #252540;
+  color: var(--white);
+}

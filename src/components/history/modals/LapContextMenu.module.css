@@ -1,0 +1,24 @@
+.menu {
+  position: fixed;
+  z-index: 1000;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 180px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.item {
+  padding: 8px 16px;
+  font-family: var(--font-u);
+  font-size: 0.78rem;
+  color: var(--grey-light);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.item:hover {
+  background: rgba(232, 0, 45, 0.12);
+  color: var(--white);
+}

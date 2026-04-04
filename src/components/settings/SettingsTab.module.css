@@ -1,0 +1,88 @@
+.wrapper {
+  overflow-y: auto;
+  height: 100%;
+}
+
+.layout {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 1.5rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.saveRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0;
+}
+
+.btnPrimary {
+  background: var(--red);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-family: var(--font-d);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 8px 20px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btnPrimary:hover {
+  opacity: 0.85;
+}
+
+.saveStatus {
+  font-size: 0.72rem;
+  color: var(--green);
+}
+
+/* Keyboard shortcuts card in settings */
+.shortcutsCard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.2rem;
+}
+
+.cardTitle {
+  font-family: var(--font-d);
+  font-size: 0.62rem;
+  letter-spacing: 0.2em;
+  color: var(--grey-light);
+  font-weight: 700;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+}
+
+.shortcutList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+}
+
+.shortcutItem {
+  font-size: 0.72rem;
+  color: var(--grey-light);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kbd {
+  display: inline-block;
+  background: #1a1a30;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-family: var(--font-d);
+  font-size: 0.58rem;
+  color: var(--white);
+  min-width: 24px;
+  text-align: center;
+}

@@ -1,0 +1,36 @@
+.compoundRow {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.badge {
+  font-family: var(--font-d);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 5px;
+  background: #222;
+  letter-spacing: 0.1em;
+  min-width: 76px;
+  text-align: center;
+}
+
+.soft   { background: #c0392b; color: #fff; }
+.medium { background: #d4a017; color: #000; }
+.hard   { background: #c8ccd0; color: #000; }
+.inter  { background: #1a7a3a; color: #fff; }
+.wet    { background: #1a4a8a; color: #fff; }
+
+.ageLabel {
+  font-size: 0.50rem;
+  color: var(--grey);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+}
+
+.ageVal {
+  font-family: var(--font-d);
+  font-size: 0.82rem;
+  color: var(--white);
+}

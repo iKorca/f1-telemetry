@@ -1,0 +1,53 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.barWrap {
+  display: flex;
+  height: 12px;
+  background: #10101e;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  position: relative;
+}
+
+.deltaHalf {
+  height: 100%;
+  width: 0%;
+  transition: width 0.15s linear;
+}
+
+.neg {
+  background: var(--green);
+  margin-left: auto;
+  border-radius: 6px 0 0 6px;
+}
+
+.pos {
+  background: var(--red);
+  border-radius: 0 6px 6px 0;
+}
+
+.center {
+  width: 2px;
+  background: var(--grey);
+  flex-shrink: 0;
+}
+
+.deltaValue {
+  font-family: var(--font-d);
+  font-size: 0.72rem;
+  text-align: center;
+  color: var(--grey-light);
+}
+
+.deltaFaster {
+  color: var(--green);
+}
+
+.deltaSlower {
+  color: var(--red);
+}

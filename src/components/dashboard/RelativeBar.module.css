@@ -1,0 +1,55 @@
+.bar {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.car {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-family: var(--font-d);
+  background: #0d0d1a;
+}
+
+.player {
+  background: rgba(232, 0, 45, 0.12);
+  border: 1px solid rgba(232, 0, 45, 0.3);
+}
+
+.pos {
+  width: 1.5em;
+  text-align: center;
+  color: var(--grey);
+}
+
+.name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gap {
+  width: 5em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ahead {
+  color: var(--green);
+}
+
+.behind {
+  color: var(--red);
+}

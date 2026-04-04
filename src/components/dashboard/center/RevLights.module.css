@@ -1,0 +1,39 @@
+.revLights {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rl {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #14142a;
+  border: 1px solid #2a2a40;
+  flex-shrink: 0;
+  transition: background 0.04s, box-shadow 0.04s;
+}
+
+.gOn {
+  background: var(--green);
+  box-shadow: 0 0 9px var(--green);
+}
+
+.oOn {
+  background: var(--orange);
+  box-shadow: 0 0 9px var(--orange);
+}
+
+.rOn {
+  background: var(--red);
+  box-shadow: 0 0 9px var(--red);
+}
+
+.flash {
+  animation: rl-flash 0.15s step-end infinite;
+}
+
+@keyframes rl-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}

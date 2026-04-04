@@ -1,0 +1,53 @@
+.badge {
+  font-family: var(--font-d);
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  padding: 3px 7px;
+  border-radius: 3px;
+  background: #14142a;
+  color: #38385a;
+  transition: background 0.15s, color 0.15s;
+}
+
+.bOn {
+  background: var(--green);
+  color: #000;
+}
+
+.bPit {
+  background: var(--yellow);
+  color: #000;
+  animation: pulse 0.5s step-end infinite;
+}
+
+.bFlagY {
+  background: var(--yellow);
+  color: #000;
+}
+
+.bFlagR {
+  background: var(--red);
+  color: #fff;
+}
+
+.bFlagSc {
+  background: var(--orange);
+  color: #000;
+}
+
+.bDrsAvailable {
+  background: rgba(57, 211, 83, 0.2);
+  color: var(--green);
+  border: 1px solid rgba(57, 211, 83, 0.4);
+}
+
+.bDrsActive {
+  background: var(--green);
+  color: #000;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}

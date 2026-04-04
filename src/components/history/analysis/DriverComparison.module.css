@@ -1,0 +1,23 @@
+.section {
+  margin-top: 1rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.vsLabel {
+  color: var(--grey);
+  font-size: 0.75rem;
+}
+
+.chartBox {
+  background: #10101e;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}

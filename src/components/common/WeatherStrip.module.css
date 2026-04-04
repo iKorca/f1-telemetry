@@ -1,0 +1,41 @@
+.strip {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 0 1.2rem;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.items {
+  display: flex;
+  gap: 1.2rem;
+  white-space: nowrap;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-d);
+  font-size: 0.52rem;
+  color: var(--grey-light);
+}
+
+.icon {
+  font-size: 0.8rem;
+}
+
+.time {
+  color: var(--grey);
+}
+
+.temp {
+  color: var(--yellow);
+}
+
+.rain {
+  color: var(--blue);
+}

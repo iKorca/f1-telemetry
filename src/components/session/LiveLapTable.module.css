@@ -1,0 +1,65 @@
+.wrap {
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-d);
+  font-size: 0.72rem;
+}
+
+.table th {
+  padding: 6px 10px;
+  text-align: left;
+  color: var(--grey-light);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--white);
+}
+
+.table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.bestLap td:nth-child(2) {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.invalidLap td {
+  opacity: 0.5;
+}
+
+.selectedLap {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.newLap {
+  animation: flashRow 0.6s ease-out;
+}
+
+@keyframes flashRow {
+  0% {
+    background: rgba(57, 211, 83, 0.25);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.tyreDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}

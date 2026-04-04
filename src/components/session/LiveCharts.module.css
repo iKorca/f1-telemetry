@@ -1,0 +1,38 @@
+.section {
+  margin-top: 1rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.select {
+  background: #10101e;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--white);
+  font-family: var(--font-d);
+  font-size: 0.68rem;
+  padding: 4px 8px;
+  outline: none;
+  cursor: pointer;
+}
+
+.select:focus {
+  border-color: var(--blue);
+}
+
+.chartWrap {
+  margin-bottom: 0.8rem;
+  background: #10101e;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  padding: 4px;
+}
