@@ -14,6 +14,8 @@ export interface SettingsConfig {
   display: {
     speedUnit: 'kmh' | 'mph';
     showTrackMap: boolean;
+    fontPreset: 'modern' | 'racing' | 'mono' | 'classic';
+    uiScale: number; // 80-130, percentage
   };
   notifications: {
     enabled: boolean;

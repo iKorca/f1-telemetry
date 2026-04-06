@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useUIStore } from '@/store/uiStore';
-import { useSettingsStore } from '@/store/settingsStore';
+import { useSettingsStore, FONT_PRESETS } from '@/store/settingsStore';
 import * as api from '@/lib/api';
 import ConnectionCard from './ConnectionCard';
 import RecordingCard from './RecordingCard';
@@ -36,6 +36,8 @@ function SettingsTab() {
   const [maxSessions, setMaxSessions] = useState(50);
   const [showTrackMap, setShowTrackMap] = useState(true);
   const [notifications, setNotifications] = useState(false);
+  const [fontPreset, setFontPreset] = useState('modern');
+  const [uiScale, setUIScale] = useState(100);
   const [subdomain, setSubdomain] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
 
@@ -70,6 +72,8 @@ function SettingsTab() {
     setFrameInterval(cfg.recording?.frameInterval ?? 3);
     setMaxSessions(cfg.recording?.maxSessions ?? 50);
     setShowTrackMap(cfg.display?.showTrackMap !== false);
+    setFontPreset(cfg.display?.fontPreset || 'modern');
+    setUIScale(cfg.display?.uiScale || 100);
     setNotifications(cfg.notifications?.enabled ?? false);
     setSubdomain(cfg.tunnel?.subdomain || '');
   }
@@ -91,6 +95,8 @@ function SettingsTab() {
       display: {
         speedUnit: speedUnit as 'kmh' | 'mph',
         showTrackMap,
+        fontPreset: fontPreset as any,
+        uiScale,
       },
       notifications: {
         enabled: notifications,
@@ -140,8 +146,18 @@ function SettingsTab() {
         <DisplayCard
           showTrackMap={showTrackMap}
           notifications={notifications}
+          fontPreset={fontPreset}
+          uiScale={uiScale}
           onShowTrackMap={setShowTrackMap}
           onNotifications={setNotifications}
+          onFontPreset={(v) => {
+            setFontPreset(v);
+            useSettingsStore.getState().setFontPreset(v as any);
+          }}
+          onUIScale={(v) => {
+            setUIScale(v);
+            useSettingsStore.getState().setUIScale(v);
+          }}
         />
 
         <TunnelCard

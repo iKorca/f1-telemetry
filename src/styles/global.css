@@ -12,7 +12,7 @@ html, body {
   background: var(--bg);
   color: var(--white);
   font-family: var(--font-u);
-  font-size: 18px;
+  font-size: 16px;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }

@@ -86,6 +86,37 @@
   background: var(--green);
 }
 
+.select {
+  background: var(--bg);
+  color: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-family: var(--font-u);
+  font-size: 0.75rem;
+  min-width: 220px;
+  cursor: pointer;
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+.range {
+  width: 160px;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+
+.scaleValue {
+  font-family: var(--font-d);
+  font-size: 0.72rem;
+  color: var(--white);
+  min-width: 36px;
+  text-align: right;
+}
+
 @media (max-width: 700px) {
   .label {
     width: 140px;
