@@ -28,7 +28,14 @@ export function findBestLapIndex(laps: RecordedLap[]): number {
 }
 
 /**
+ * Minimum speed (km/h) to consider the car "on track" vs in pit/garage.
+ */
+const ON_TRACK_MIN_SPEED = 30;
+
+/**
  * Get telemetry frames for a specific lap from a session.
+ * Trims garage/pit frames from start and end where car is stationary.
+ * Also filters out frames where lap time goes backwards (pause menu / rewind).
  */
 export function getFramesForLap(
   session: SessionDetail,
@@ -36,8 +43,40 @@ export function getFramesForLap(
 ): TelemetryFrame[] {
   const lap = session.laps?.[lapIdx];
   if (!lap || !session.frames) return [];
-  return session.frames.slice(
+
+  const raw = session.frames.slice(
     lap.startFrameIdx,
     (lap.endFrameIdx || session.frames.length) + 1,
   );
+
+  if (raw.length < 2) return raw;
+
+  // Trim leading frames where car is stationary (garage/pit)
+  let start = 0;
+  while (start < raw.length && raw[start].s < ON_TRACK_MIN_SPEED) {
+    start++;
+  }
+
+  // Trim trailing frames where car is stationary (pit entry / garage)
+  let end = raw.length - 1;
+  while (end > start && raw[end].s < ON_TRACK_MIN_SPEED) {
+    end--;
+  }
+
+  const trimmed = raw.slice(start, end + 1);
+  if (trimmed.length < 2) return trimmed;
+
+  // Filter out frames where lap time goes backwards (pause menu / rewind)
+  // Lap time should be monotonically increasing during a clean lap
+  const cleaned: TelemetryFrame[] = [trimmed[0]];
+  let lastT = trimmed[0].t;
+  for (let i = 1; i < trimmed.length; i++) {
+    if (trimmed[i].t >= lastT) {
+      cleaned.push(trimmed[i]);
+      lastT = trimmed[i].t;
+    }
+    // Skip frames where time went backwards (pause/rewind)
+  }
+
+  return cleaned;
 }

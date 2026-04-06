@@ -364,6 +364,12 @@ class Recorder {
     const car = telemetry?.playerData;
     if (!car) return;
 
+    // Skip frames when car is stationary in pit/garage (speed 0, not on track)
+    // This prevents recording garage/pause menu frames
+    const driverStatus = lapData?.driverStatus ?? 0;
+    const carSpeed = car.speed || 0;
+    if (carSpeed < 1 && driverStatus === 0) return; // 0 = In Garage
+
     const lapD    = lapData   || {};
     const statD   = carStatus || {};
     const motionD = motion?.playerData || {};
