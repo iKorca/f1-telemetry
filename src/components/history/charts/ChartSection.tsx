@@ -5,7 +5,7 @@ import MiniSectors from '@/components/shared/MiniSectors';
 import CoachingHints from '@/components/shared/CoachingHints';
 import VarianceOverlay from '../analysis/VarianceOverlay';
 import { getFramesForLap } from '@/lib/lapUtils';
-import { findSectorBoundaries, sectorOverlayPlugin, resampleToLength } from '@/lib/chartUtils';
+import { findSectorBoundariesByTime, sectorOverlayPluginTime, resampleByTime } from '@/lib/chartUtils';
 import type uPlot from 'uplot';
 import styles from './ChartSection.module.css';
 
@@ -39,8 +39,8 @@ function ChartSection({
     if (!lap)
       return { frames: [], cmpFrames: null, sectorPlugin: {} as uPlot.Plugin };
     const f = getFramesForLap(session, selectedLapIdx);
-    const si = findSectorBoundaries(f, lap);
-    const sp = sectorOverlayPlugin(si, {
+    const si = findSectorBoundariesByTime(f, lap);
+    const sp = sectorOverlayPluginTime(si, {
       colors: ['rgba(160, 32, 240, 0.4)', 'rgba(255, 215, 0, 0.4)'],
     });
 
@@ -49,100 +49,82 @@ function ChartSection({
       compareLapIdx !== null &&
       session.laps[compareLapIdx]
     ) {
-      cf = getFramesForLap(session, compareLapIdx);
+      const rawCf = getFramesForLap(session, compareLapIdx);
+      if (rawCf.length >= 2) cf = rawCf;
     }
     return { frames: f, cmpFrames: cf, sectorPlugin: sp };
   }, [session, selectedLapIdx, compareLapIdx]);
 
+  // Use lap time as x-axis so laps align from S/F line
+  const pTimes = useMemo(() => frames.map((f) => f.t), [frames]);
+  const cTimes = useMemo(() => cmpFrames?.map((f) => f.t) ?? [], [cmpFrames]);
+
   // Speed chart
   const speedData = useMemo(() => {
     if (frames.length < 2) return null;
-    const x = frames.map((_, i) => i);
-    const y = frames.map((f) => f.s);
     const series: uPlot.Series[] = [
       {},
       { label: 'Speed', stroke: '#f0f0f0', width: 1.5 },
     ];
-    const data: uPlot.AlignedData = [x, y];
+    const data: uPlot.AlignedData = [pTimes, frames.map((f) => f.s)];
     if (cmpFrames && cmpFrames.length > 1) {
-      const cmpY = resampleToLength(
-        cmpFrames.map((f) => f.s),
-        x.length,
-      );
+      const cmpY = resampleByTime(pTimes, cTimes, cmpFrames.map((f) => f.s));
       series.push({ label: 'Compare', stroke: '#3b82f6', width: 1.5 });
       data.push(cmpY);
     }
     return { series, data };
-  }, [frames, cmpFrames]);
+  }, [frames, cmpFrames, pTimes, cTimes]);
 
   // Throttle/Brake chart
   const inputsData = useMemo(() => {
     if (frames.length < 2) return null;
-    const x = frames.map((_, i) => i);
     const series: uPlot.Series[] = [
       {},
       { label: 'Throttle', stroke: '#39d353', width: 1.5 },
       { label: 'Brake', stroke: '#e8002d', width: 1.5 },
     ];
     const data: uPlot.AlignedData = [
-      x,
+      pTimes,
       frames.map((f) => f.th),
       frames.map((f) => f.br),
     ];
     if (cmpFrames && cmpFrames.length > 1) {
-      const cmpTh = resampleToLength(
-        cmpFrames.map((f) => f.th),
-        x.length,
-      );
-      const cmpBr = resampleToLength(
-        cmpFrames.map((f) => f.br),
-        x.length,
-      );
+      const cmpTh = resampleByTime(pTimes, cTimes, cmpFrames.map((f) => f.th));
+      const cmpBr = resampleByTime(pTimes, cTimes, cmpFrames.map((f) => f.br));
       series.push(
-        {
-          label: 'Throttle (cmp)',
-          stroke: 'rgba(57,211,83,0.4)',
-          width: 1,
-        },
+        { label: 'Throttle (cmp)', stroke: 'rgba(57,211,83,0.4)', width: 1 },
         { label: 'Brake (cmp)', stroke: 'rgba(232,0,45,0.4)', width: 1 },
       );
       data.push(cmpTh, cmpBr);
     }
     return { series, data };
-  }, [frames, cmpFrames]);
+  }, [frames, cmpFrames, pTimes, cTimes]);
 
   // Gear chart
   const gearData = useMemo(() => {
     if (frames.length < 2) return null;
-    const x = frames.map((_, i) => i);
     const series: uPlot.Series[] = [
       {},
       { label: 'Gear', stroke: '#f5c518', width: 1.5 },
     ];
-    const data: uPlot.AlignedData = [x, frames.map((f) => f.g)];
+    const data: uPlot.AlignedData = [pTimes, frames.map((f) => f.g)];
     if (cmpFrames && cmpFrames.length > 1) {
-      const cmpG = resampleToLength(
-        cmpFrames.map((f) => f.g),
-        x.length,
-      );
+      const cmpG = resampleByTime(pTimes, cTimes, cmpFrames.map((f) => f.g));
       series.push({ label: 'Gear (cmp)', stroke: '#3b82f6', width: 1.5 });
       data.push(cmpG);
     }
     return { series, data };
-  }, [frames, cmpFrames]);
+  }, [frames, cmpFrames, pTimes, cTimes]);
 
-  // Delta chart
+  // Delta chart (time difference: positive = slower, negative = faster)
   const deltaData = useMemo(() => {
     if (frames.length < 2 || !cmpFrames || cmpFrames.length < 2)
       return null;
-    const resampled = resampleToLength(
-      cmpFrames.map((f) => f.t),
-      frames.length,
-    );
-    const x = frames.map((_, i) => i);
-    const baseTimes = frames.map((f) => f.t);
-    const delta = baseTimes.map(
-      (t, i) => ((t - baseTimes[0]) - (resampled[i] - resampled[0])) / 1000,
+    const cmpResampled = resampleByTime(pTimes, cTimes, cTimes);
+    const pStart = pTimes[0];
+    const cStart = cTimes[0];
+    const delta = pTimes.map(
+      (t, i) => ((t - pStart) - (cmpResampled[i] - cStart)) / 1000,
     );
     return {
       series: [
@@ -160,9 +142,9 @@ function ChartSection({
           },
         },
       ] as uPlot.Series[],
-      data: [x, delta] as uPlot.AlignedData,
+      data: [pTimes, delta] as uPlot.AlignedData,
     };
-  }, [frames, cmpFrames]);
+  }, [frames, cmpFrames, pTimes, cTimes]);
 
   const handleLapSelect = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {

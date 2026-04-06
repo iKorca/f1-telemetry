@@ -4,7 +4,7 @@ import UPlotChart from '@/components/common/UPlotChart';
 import MiniSectors from '@/components/shared/MiniSectors';
 import CoachingHints from '@/components/shared/CoachingHints';
 import { findBestLapIndex, getFramesForLap } from '@/lib/lapUtils';
-import { findSectorBoundaries, sectorOverlayPlugin } from '@/lib/chartUtils';
+import { findSectorBoundariesByTime, sectorOverlayPluginTime, resampleByTime } from '@/lib/chartUtils';
 import type uPlot from 'uplot';
 import styles from './LiveCharts.module.css';
 
@@ -38,20 +38,16 @@ function LiveCharts({
     const frames = getFramesForLap(session, selectedLap);
     if (frames.length < 2) return null;
 
-    const xData = frames.map((_, i) => i);
-    const sectorIndices = findSectorBoundaries(frames, lap);
+    const xData = frames.map((f) => f.t);
+    const sectorTimes = findSectorBoundariesByTime(frames, lap);
 
     let cmpFrames: typeof frames | null = null;
-    let cmpX: number[] | null = null;
     if (compareLap !== null && laps[compareLap]) {
       const rawCmp = getFramesForLap(session, compareLap);
-      if (rawCmp.length >= 2) {
-        cmpFrames = rawCmp;
-        cmpX = rawCmp.map((_, i) => i);
-      }
+      if (rawCmp.length >= 2) cmpFrames = rawCmp;
     }
 
-    return { frames, xData, sectorIndices, cmpFrames, cmpX };
+    return { frames, xData, sectorTimes, cmpFrames };
   }, [session, selectedLap, compareLap, laps]);
 
   const handleLapSelect = useCallback(
@@ -71,18 +67,21 @@ function LiveCharts({
 
   if (selectedLap === null || !chartData) return null;
 
-  const { frames, xData, sectorIndices, cmpFrames, cmpX } = chartData;
-  const sectorPlugin = sectorOverlayPlugin(sectorIndices, {
+  const { frames, xData, sectorTimes, cmpFrames } = chartData;
+  const cTimes = cmpFrames?.map((f) => f.t) ?? [];
+  const sectorPlugin = sectorOverlayPluginTime(sectorTimes, {
     lineWidth: 1,
     lineDash: [4, 4],
   });
+
+  const hasCmp = cmpFrames && cmpFrames.length > 1;
 
   // Speed chart
   const speedOpts: Partial<uPlot.Options> = {
     series: [
       {},
       { label: 'Speed', stroke: '#f0f0f0', width: 2 },
-      ...(cmpX ? [{ label: 'Compare', stroke: '#3b82f6', width: 1.5 }] : []),
+      ...(hasCmp ? [{ label: 'Compare', stroke: '#3b82f6', width: 1.5 } as uPlot.Series] : []),
     ],
     axes: [{ show: false }, { label: 'km/h' }],
     scales: { x: { time: false } },
@@ -90,7 +89,7 @@ function LiveCharts({
   const speedData: uPlot.AlignedData = [
     xData,
     frames.map((f) => f.s),
-    ...(cmpFrames ? [cmpFrames.map((f) => f.s)] : []),
+    ...(hasCmp ? [resampleByTime(xData, cTimes, cmpFrames!.map((f) => f.s))] : []),
   ];
 
   // Throttle/Brake chart
@@ -99,72 +98,46 @@ function LiveCharts({
       {},
       { label: 'Throttle', stroke: '#39d353', width: 2 },
       { label: 'Brake', stroke: '#e8002d', width: 2 },
-      ...(cmpX
+      ...(hasCmp
         ? [
-            { label: 'Throttle (cmp)', stroke: 'rgba(57,211,83,0.4)', width: 1 },
-            { label: 'Brake (cmp)', stroke: 'rgba(232,0,45,0.4)', width: 1 },
+            { label: 'Throttle (cmp)', stroke: 'rgba(57,211,83,0.4)', width: 1 } as uPlot.Series,
+            { label: 'Brake (cmp)', stroke: 'rgba(232,0,45,0.4)', width: 1 } as uPlot.Series,
           ]
         : []),
     ],
     axes: [{ show: false }, { label: '%' }],
     scales: { x: { time: false } },
   };
-  const inputData: uPlot.AlignedData = (() => {
-    const base: (number | null | undefined)[][] = [
-      xData,
-      frames.map((f) => f.th),
-      frames.map((f) => f.br),
-    ];
-    if (cmpFrames && cmpX) {
-      // Pad compare series to same length as primary x-axis
-      const padded = (arr: number[]) => {
-        const out: (number | null)[] = new Array(xData.length).fill(null);
-        arr.forEach((v, i) => {
-          if (i < out.length) out[i] = v;
-        });
-        return out;
-      };
-      base.push(padded(cmpFrames.map((f) => f.th)));
-      base.push(padded(cmpFrames.map((f) => f.br)));
-    }
-    return base as uPlot.AlignedData;
-  })();
+  const inputData: uPlot.AlignedData = [
+    xData,
+    frames.map((f) => f.th),
+    frames.map((f) => f.br),
+    ...(hasCmp
+      ? [
+          resampleByTime(xData, cTimes, cmpFrames!.map((f) => f.th)),
+          resampleByTime(xData, cTimes, cmpFrames!.map((f) => f.br)),
+        ]
+      : []),
+  ];
 
   // Gear chart
   const gearOpts: Partial<uPlot.Options> = {
     series: [
       {},
       { label: 'Gear', stroke: '#f5c518', width: 2 },
-      ...(cmpX ? [{ label: 'Compare', stroke: '#3b82f6', width: 1.5 }] : []),
+      ...(hasCmp ? [{ label: 'Compare', stroke: '#3b82f6', width: 1.5 } as uPlot.Series] : []),
     ],
     axes: [{ show: false }, { label: 'Gear' }],
     scales: { x: { time: false } },
   };
-  const gearData: uPlot.AlignedData = (() => {
-    const base: (number | null | undefined)[][] = [
-      xData,
-      frames.map((f) => f.g),
-    ];
-    if (cmpFrames) {
-      const padded: (number | null)[] = new Array(xData.length).fill(null);
-      cmpFrames.forEach((f, i) => {
-        if (i < padded.length) padded[i] = f.g;
-      });
-      base.push(padded);
-    }
-    return base as uPlot.AlignedData;
-  })();
+  const gearData: uPlot.AlignedData = [
+    xData,
+    frames.map((f) => f.g),
+    ...(hasCmp ? [resampleByTime(xData, cTimes, cmpFrames!.map((f) => f.g))] : []),
+  ];
 
   // Delta chart (time difference)
-  const deltaResult = useMemo(() => {
-    if (!cmpFrames || cmpFrames.length < 2) return null;
-    const len = Math.min(frames.length, cmpFrames.length);
-    const dx = Array.from({ length: len }, (_, i) => i);
-    const deltaY = dx.map((i) => (frames[i].t - frames[0].t - (cmpFrames![i].t - cmpFrames![0].t)) / 1000);
-    return { dx, deltaY };
-  }, [frames, cmpFrames]);
-
-  const deltaOpts: Partial<uPlot.Options> | null = deltaResult
+  const deltaOpts: Partial<uPlot.Options> | null = hasCmp
     ? {
         series: [
           {},
@@ -182,6 +155,17 @@ function LiveCharts({
         axes: [{ show: false }, { label: 'Delta (s)' }],
         scales: { x: { time: false } },
       }
+    : null;
+  const deltaData: uPlot.AlignedData | null = hasCmp
+    ? (() => {
+        const cmpResampled = resampleByTime(xData, cTimes, cTimes);
+        const pStart = xData[0];
+        const cStart = cTimes[0];
+        const delta = xData.map(
+          (t, i) => ((t - pStart) - (cmpResampled[i] - cStart)) / 1000,
+        );
+        return [xData, delta] as uPlot.AlignedData;
+      })()
     : null;
 
   return (
@@ -246,11 +230,11 @@ function LiveCharts({
           plugins={[sectorPlugin]}
         />
       </div>
-      {deltaResult && deltaOpts && (
+      {deltaData && deltaOpts && (
         <div className={styles.chartWrap}>
           <UPlotChart
             options={deltaOpts}
-            data={[deltaResult.dx, deltaResult.deltaY]}
+            data={deltaData}
             height={140}
           />
         </div>

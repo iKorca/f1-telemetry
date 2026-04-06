@@ -36,6 +36,8 @@ export interface RecordedLap {
   setupLapRef: number | null;
   deleted?: boolean;
   notes?: string;
+  isOutLap?: boolean;
+  isPitLap?: boolean;
 }
 
 export interface RecordedStint {

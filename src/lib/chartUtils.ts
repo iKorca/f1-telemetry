@@ -88,3 +88,99 @@ export function resampleToLength(arr: number[], targetLen: number): number[] {
   }
   return result;
 }
+
+/**
+ * Resample a comparison lap's values to align with the primary lap's time points.
+ * Uses the `t` (lap time in ms) field from each frame for time-based alignment.
+ * Both laps are normalised to start at t=0 so they align from the S/F line.
+ */
+export function resampleByTime(
+  primaryTimes: number[],
+  cmpTimes: number[],
+  cmpValues: number[],
+): number[] {
+  if (cmpTimes.length < 2) return primaryTimes.map(() => 0);
+
+  const pStart = primaryTimes[0];
+  const cStart = cmpTimes[0];
+
+  // Normalise both to start at 0
+  const pNorm = primaryTimes.map((t) => t - pStart);
+  const cNorm = cmpTimes.map((t) => t - cStart);
+  const cMax = cNorm[cNorm.length - 1];
+
+  const result: number[] = [];
+  let ci = 0;
+
+  for (let i = 0; i < pNorm.length; i++) {
+    const target = pNorm[i];
+
+    // Clamp to comparison lap range
+    if (target <= 0) {
+      result.push(cmpValues[0]);
+      continue;
+    }
+    if (target >= cMax) {
+      result.push(cmpValues[cmpValues.length - 1]);
+      continue;
+    }
+
+    // Advance pointer
+    while (ci < cNorm.length - 2 && cNorm[ci + 1] < target) ci++;
+
+    // Interpolate
+    const t0 = cNorm[ci];
+    const t1 = cNorm[ci + 1];
+    const frac = t1 > t0 ? (target - t0) / (t1 - t0) : 0;
+    result.push(cmpValues[ci] * (1 - frac) + cmpValues[ci + 1] * frac);
+  }
+
+  return result;
+}
+
+/**
+ * Find sector boundaries by time value (for time-based x-axis).
+ * Returns the actual time values (not indices) where sectors end.
+ */
+export function findSectorBoundariesByTime(
+  frames: { t: number }[],
+  lap: { s1Ms?: number; s2Ms?: number },
+): number[] {
+  if (!lap.s1Ms || !lap.s2Ms || frames.length < 3) return [];
+  const startTime = frames[0].t;
+  return [startTime + lap.s1Ms, startTime + lap.s1Ms + lap.s2Ms];
+}
+
+/**
+ * Sector overlay plugin that works with time-based x-axis.
+ */
+export function sectorOverlayPluginTime(
+  sectorTimes: number[],
+  options?: SectorOverlayOptions,
+): uPlot.Plugin {
+  if (!sectorTimes || sectorTimes.length === 0) return {} as uPlot.Plugin;
+  const opts = { ...defaultOverlayOptions, ...options };
+  return {
+    hooks: {
+      draw: [
+        (u: uPlot) => {
+          const ctx = u.ctx;
+          const { left, top, height: plotH } = u.bbox;
+          ctx.save();
+          ctx.lineWidth = opts.lineWidth;
+          ctx.setLineDash(opts.lineDash);
+          sectorTimes.forEach((t, i) => {
+            const xPos = u.valToPos(t, 'x', true);
+            if (xPos < left) return;
+            ctx.beginPath();
+            ctx.strokeStyle = opts.colors[i % opts.colors.length];
+            ctx.moveTo(xPos, top);
+            ctx.lineTo(xPos, top + plotH);
+            ctx.stroke();
+          });
+          ctx.restore();
+        },
+      ],
+    },
+  };
+}

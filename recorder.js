@@ -50,6 +50,11 @@ class Recorder {
     this._lapFrameCount  = 0;
     this._lapMaxSpeed    = 0;
 
+    // Pit tracking for out-lap / pit-lap detection
+    this._wasInPit         = true; // First lap is always an out-lap
+    this._pitEnteredThisLap = false;
+    this._prevPitStatus    = 0;
+
     // Per-lap setup tracking
     this._lastSetupHash = null;
     this._lastSetupLap  = 0;
@@ -323,6 +328,18 @@ class Recorder {
         this._lastLapNum = lapNum;
         this._currentLap = lapNum;
 
+        // Track pit status for out-lap / pit-lap detection
+        const pitStatus = lapData.pitStatus || 0;
+        if (pitStatus > 0 && this._prevPitStatus === 0) {
+          // Just entered pit lane
+          this._pitEnteredThisLap = true;
+        }
+        if (pitStatus === 0 && this._prevPitStatus > 0) {
+          // Just exited pit — next lap is an out-lap
+          this._wasInPit = true;
+        }
+        this._prevPitStatus = pitStatus;
+
         // Check for stint change
         if (carStatus) {
           const cmp = compoundName(carStatus.visualTyreCompound, carStatus.actualTyreCompound);
@@ -398,13 +415,23 @@ class Recorder {
     const avgBrake = this._lapFrameCount > 0
       ? +(this._lapBrakeSum / this._lapFrameCount).toFixed(2) : 0;
 
+    // Detect out-laps and pit laps:
+    // - Out-lap: first lap of session, or lap after a pit stop (low speed start, incomplete sectors)
+    // - Pit entry lap: car entered pit during this lap (pitStatus was > 0)
+    const isOutLap = this._wasInPit || completedLapNum === 1;
+    const isPitEntryLap = this._pitEnteredThisLap;
+
+    // Mark as invalid if it's an out-lap or pit-entry lap with missing sectors
+    const isIncomplete = isOutLap || isPitEntryLap;
+    const effectiveValid = isIncomplete ? false : lapValid;
+
     const lapEntry = {
       lapNum:        completedLapNum,
       lapTimeMs:     lastLapMs,
       s1Ms:          s1,
       s2Ms:          s2,
       s3Ms:          s3,
-      valid:         lapValid,
+      valid:         effectiveValid,
       compound,
       tyreAge,
       maxSpeed:      this._lapMaxSpeed,
@@ -413,13 +440,20 @@ class Recorder {
       startFrameIdx: this._lapStartFrameIdx,
       endFrameIdx,
       setupLapRef:   this._lastSetupLap || null,
+      isOutLap:      isOutLap || false,
+      isPitLap:      isPitEntryLap || false,
     };
 
     this._session.laps.push(lapEntry);
     this._lapStartFrameIdx = endFrameIdx + 1;
     this._resetLapAccumulators();
 
-    console.log(`[Recorder] Lap ${completedLapNum} complete — ${this._fmtMs(lastLapMs)}`);
+    // Reset pit tracking for next lap
+    this._wasInPit = false;
+    this._pitEnteredThisLap = false;
+
+    const tag = isOutLap ? ' [OUT LAP]' : isPitEntryLap ? ' [PIT LAP]' : '';
+    console.log(`[Recorder] Lap ${completedLapNum} complete — ${this._fmtMs(lastLapMs)}${tag}`);
   }
 
   _resetLapAccumulators() {
