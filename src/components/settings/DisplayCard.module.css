@@ -1,106 +1,15 @@
-.card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1.2rem;
-}
-
-.cardTitle {
-  font-family: var(--font-d);
-  font-size: 0.62rem;
-  letter-spacing: 0.2em;
-  color: var(--grey-light);
-  font-weight: 700;
-  margin-bottom: 1rem;
-  text-transform: uppercase;
-}
-
-.row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.4rem 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.row:last-child {
-  border-bottom: none;
-}
-
-.label {
-  font-size: 0.75rem;
-  color: var(--grey-light);
-  width: 220px;
-  flex-shrink: 0;
-}
-
-.control {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex: 1;
-}
-
-.toggle {
-  position: relative;
-  display: inline-block;
-  width: 38px;
-  height: 20px;
-  cursor: pointer;
-}
-
-.toggleInput {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.toggleSlider {
-  position: absolute;
-  inset: 0;
-  background: #1a1a30;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  transition: background 0.2s;
-}
-
-.toggleSlider::before {
-  content: '';
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  left: 2px;
-  top: 2px;
-  background: var(--grey);
-  border-radius: 50%;
-  transition: transform 0.2s, background 0.2s;
-}
-
-.toggleInput:checked + .toggleSlider {
-  background: rgba(57, 211, 83, 0.2);
-  border-color: var(--green);
-}
-
-.toggleInput:checked + .toggleSlider::before {
-  transform: translateX(18px);
-  background: var(--green);
-}
+.card { composes: card from '../../styles/settingsCard.module.css'; }
+.cardTitle { composes: cardTitle from '../../styles/settingsCard.module.css'; }
+.row { composes: row from '../../styles/settingsCard.module.css'; }
+.label { composes: label from '../../styles/settingsCard.module.css'; }
+.control { composes: control from '../../styles/settingsCard.module.css'; }
+.toggle { composes: toggle from '../../styles/settingsCard.module.css'; }
+.toggleInput { composes: toggleInput from '../../styles/settingsCard.module.css'; }
+.toggleSlider { composes: toggleSlider from '../../styles/settingsCard.module.css'; }
 
 .select {
-  background: var(--bg);
-  color: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 6px 10px;
-  font-family: var(--font-u);
-  font-size: 0.75rem;
+  composes: select from '../../styles/settingsCard.module.css';
   min-width: 220px;
-  cursor: pointer;
-}
-
-.select:focus {
-  outline: none;
-  border-color: var(--blue);
 }
 
 .range {
@@ -115,10 +24,4 @@
   color: var(--white);
   min-width: 36px;
   text-align: right;
-}
-
-@media (max-width: 700px) {
-  .label {
-    width: 140px;
-  }
 }

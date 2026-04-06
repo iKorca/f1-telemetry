@@ -1,10 +1,11 @@
 import React from 'react';
 import type { LapData, CarStatus, Participant } from '@shared/types';
-import { fmtTime, fmtDelta } from '../../lib/formatters';
-import { getTeamColor } from '../../lib/colors';
+import { DRIVER_STATUS } from '@/lib/constants';
+import { fmtTime, fmtDelta } from '@/lib/formatters';
+import { getTeamColor } from '@/lib/colors';
 import styles from './TimingRow.module.css';
 
-const DRIVER_STATUS = ['Garage', 'Flying', 'In Lap', 'Out Lap', 'On Track'];
+/** Timing-specific mapping: indices 0-1 show empty (use driverStatus instead). */
 const RESULT_STATUS: Record<number, string> = {
   0: '',
   1: '',
@@ -54,8 +55,8 @@ function TimingRowInner({
     lapData.lastLapTimeInMS > 0 ? fmtTime(lapData.lastLapTimeInMS) : '\u2014';
 
   // Best lap: use session history best if available, otherwise show dash
-  // For now we show dash as in the original app.js (column 6 was always "—")
-  const bestLapMs = 0; // placeholder: original code shows "—"
+  // For now we show dash as in the original app.js (column 6 was always "\u2014")
+  const bestLapMs = 0; // placeholder: original code shows "\u2014"
   const bestLap = bestLapMs > 0 ? fmtTime(bestLapMs) : '\u2014';
 
   // Determine if this car's last lap IS the session fastest

@@ -1,92 +1,15 @@
-.card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1.2rem;
-}
-
-.cardTitle {
-  font-family: var(--font-d);
-  font-size: 0.62rem;
-  letter-spacing: 0.2em;
-  color: var(--grey-light);
-  font-weight: 700;
-  margin-bottom: 1rem;
-  text-transform: uppercase;
-}
-
-.row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.4rem 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.row:last-child {
-  border-bottom: none;
-}
-
-.label {
-  font-size: 0.75rem;
-  color: var(--grey-light);
-  width: 220px;
-  flex-shrink: 0;
-}
-
-.control {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex: 1;
-}
-
-.input {
-  background: #10101e;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--white);
-  font-family: var(--font-d);
-  font-size: 0.72rem;
-  padding: 5px 10px;
-  width: 120px;
-  outline: none;
-}
-
-.input:focus {
-  border-color: var(--blue);
-}
-
-.select {
-  background: #10101e;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--white);
-  font-family: var(--font-u);
-  font-size: 0.78rem;
-  padding: 5px 10px;
-  outline: none;
-  cursor: pointer;
-}
-
-.select:focus {
-  border-color: var(--blue);
-}
-
-.note {
-  font-size: 0.62rem;
-  color: var(--grey);
-}
+.card { composes: card from '../../styles/settingsCard.module.css'; }
+.cardTitle { composes: cardTitle from '../../styles/settingsCard.module.css'; }
+.row { composes: row from '../../styles/settingsCard.module.css'; }
+.label { composes: label from '../../styles/settingsCard.module.css'; }
+.control { composes: control from '../../styles/settingsCard.module.css'; }
+.input { composes: input from '../../styles/settingsCard.module.css'; }
+.select { composes: select from '../../styles/settingsCard.module.css'; }
+.note { composes: note from '../../styles/settingsCard.module.css'; }
 
 .ips {
   font-family: var(--font-d);
   font-size: 0.65rem;
   color: var(--green);
   line-height: 1.8;
-}
-
-@media (max-width: 700px) {
-  .label {
-    width: 140px;
-  }
 }

@@ -4,6 +4,7 @@ import UPlotChart from '@/components/common/UPlotChart';
 import MiniSectors from '@/components/shared/MiniSectors';
 import CoachingHints from '@/components/shared/CoachingHints';
 import VarianceOverlay from '../analysis/VarianceOverlay';
+import { findSectorBoundaries, sectorOverlayPlugin, resampleToLength } from '@/lib/chartUtils';
 import type uPlot from 'uplot';
 import styles from './ChartSection.module.css';
 
@@ -14,66 +15,6 @@ interface ChartSectionProps {
   onLapChange: (lapIdx: number) => void;
   onCompareChange: (lapIdx: number | null) => void;
   onClose: () => void;
-}
-
-function findSectorBoundaries(
-  frames: TelemetryFrame[],
-  lap: { s1Ms: number; s2Ms: number },
-): number[] {
-  if (!lap.s1Ms || !lap.s2Ms || frames.length < 3) return [];
-  const startTime = frames[0].t;
-  const s1End = startTime + lap.s1Ms;
-  const s2End = startTime + lap.s1Ms + lap.s2Ms;
-  const indices: number[] = [];
-  for (let i = 0; i < frames.length; i++) {
-    if (indices.length === 0 && frames[i].t >= s1End) indices.push(i);
-    if (indices.length === 1 && frames[i].t >= s2End) {
-      indices.push(i);
-      break;
-    }
-  }
-  return indices;
-}
-
-function sectorOverlayPlugin(sectorIndices: number[]): uPlot.Plugin {
-  if (!sectorIndices || sectorIndices.length === 0) return {} as uPlot.Plugin;
-  const colors = ['rgba(160, 32, 240, 0.4)', 'rgba(255, 215, 0, 0.4)'];
-  return {
-    hooks: {
-      draw: [
-        (u: uPlot) => {
-          const ctx = u.ctx;
-          const { left, top, height: plotH } = u.bbox;
-          ctx.save();
-          sectorIndices.forEach((fi, i) => {
-            const xPos = u.valToPos(fi, 'x', true);
-            if (xPos < left) return;
-            ctx.beginPath();
-            ctx.strokeStyle = colors[i] || '#888';
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([6, 4]);
-            ctx.moveTo(xPos, top);
-            ctx.lineTo(xPos, top + plotH);
-            ctx.stroke();
-          });
-          ctx.restore();
-        },
-      ],
-    },
-  };
-}
-
-function resampleToLength(arr: number[], targetLen: number): number[] {
-  if (arr.length === targetLen) return arr;
-  const result: number[] = [];
-  for (let i = 0; i < targetLen; i++) {
-    const srcIdx = (i / (targetLen - 1)) * (arr.length - 1);
-    const low = Math.floor(srcIdx);
-    const high = Math.min(low + 1, arr.length - 1);
-    const frac = srcIdx - low;
-    result.push(arr[low] * (1 - frac) + arr[high] * frac);
-  }
-  return result;
 }
 
 function ChartSection({
@@ -101,7 +42,9 @@ function ChartSection({
       (lap.endFrameIdx || session.frames.length) + 1,
     );
     const si = findSectorBoundaries(f, lap);
-    const sp = sectorOverlayPlugin(si);
+    const sp = sectorOverlayPlugin(si, {
+      colors: ['rgba(160, 32, 240, 0.4)', 'rgba(255, 215, 0, 0.4)'],
+    });
 
     let cf: TelemetryFrame[] | null = null;
     if (

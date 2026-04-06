@@ -1,8 +1,9 @@
 import React, { useMemo, useCallback } from 'react';
-import type { SessionDetail, RecordedLap } from '@shared/types';
+import type { SessionDetail } from '@shared/types';
 import UPlotChart from '@/components/common/UPlotChart';
 import MiniSectors from '@/components/shared/MiniSectors';
 import CoachingHints from '@/components/shared/CoachingHints';
+import { findSectorBoundaries, sectorOverlayPlugin } from '@/lib/chartUtils';
 import type uPlot from 'uplot';
 import styles from './LiveCharts.module.css';
 
@@ -13,55 +14,6 @@ interface LiveChartsProps {
   onLapChange: (lapIdx: number) => void;
   onCompareChange: (lapIdx: number | null) => void;
   onClose: () => void;
-}
-
-/**
- * Find sector boundary indices within a frames array for overlay rendering.
- */
-function findSectorBoundaries(
-  frames: { t: number }[],
-  lap: RecordedLap,
-): number[] {
-  if (!lap.s1Ms || !lap.s2Ms) return [];
-  const startT = frames[0].t;
-  const s1End = startT + lap.s1Ms;
-  const s2End = s1End + lap.s2Ms;
-  const boundaries: number[] = [];
-  for (let i = 0; i < frames.length; i++) {
-    if (boundaries.length === 0 && frames[i].t >= s1End) boundaries.push(i);
-    if (boundaries.length === 1 && frames[i].t >= s2End) {
-      boundaries.push(i);
-      break;
-    }
-  }
-  return boundaries;
-}
-
-/**
- * Create a uPlot plugin that draws sector divider lines.
- */
-function sectorOverlayPlugin(sectorIndices: number[]): uPlot.Plugin {
-  return {
-    hooks: {
-      draw: [
-        (u: uPlot) => {
-          const ctx = u.ctx;
-          ctx.save();
-          ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-          ctx.lineWidth = 1;
-          ctx.setLineDash([4, 4]);
-          for (const idx of sectorIndices) {
-            const cx = u.valToPos(idx, 'x', true);
-            ctx.beginPath();
-            ctx.moveTo(cx, u.bbox.top);
-            ctx.lineTo(cx, u.bbox.top + u.bbox.height);
-            ctx.stroke();
-          }
-          ctx.restore();
-        },
-      ],
-    },
-  };
 }
 
 function LiveCharts({
@@ -138,7 +90,10 @@ function LiveCharts({
   if (selectedLap === null || !chartData) return null;
 
   const { frames, xData, sectorIndices, cmpFrames, cmpX } = chartData;
-  const sectorPlugin = sectorOverlayPlugin(sectorIndices);
+  const sectorPlugin = sectorOverlayPlugin(sectorIndices, {
+    lineWidth: 1,
+    lineDash: [4, 4],
+  });
 
   // Speed chart
   const speedOpts: Partial<uPlot.Options> = {

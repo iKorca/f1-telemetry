@@ -1,51 +1,19 @@
 import React from 'react';
 import type { RaceEngineerCar } from '@shared/types';
+import { TEAM_COLORS, COMPOUND_COLORS, DRIVER_STATUS, RESULT_STATUS } from '@/lib/constants';
+import { fmtTime, fmtGap } from '@/lib/formatters';
 import StintBadge from './StintBadge';
 import styles from './RaceRow.module.css';
-
-const TEAM_COLORS: Record<number, string> = {
-  0: '#00e5ff', 1: '#dc0000', 2: '#00d2be', 3: '#ff8000', 4: '#0600ef',
-  5: '#006f62', 6: '#2293d1', 7: '#b6babd', 8: '#52e252', 9: '#1868db',
-  255: '#888888',
-};
-
-const COMPOUND_COLORS: Record<string, string> = {
-  SOFT: '#ff3333', MEDIUM: '#ffcc00', HARD: '#ffffff',
-  INTER: '#33cc33', WET: '#3399ff', UNKNOWN: '#888888',
-};
-
-const DRIVER_STATUS = ['Garage', 'Flying', 'In Lap', 'Out Lap', 'On Track'];
-const RESULT_STATUS = ['Invalid', 'Inactive', 'Active', 'Finished', 'DNF', 'DSQ', 'NC', 'RET'];
-
-interface RaceRowProps {
-  car: RaceEngineerCar & { idx: number };
-  playerCarIndex: number;
-  visibleColumns: boolean[];
-}
-
-function pad2(n: number) { return String(n).padStart(2, '0'); }
-function pad3(n: number) { return String(n).padStart(3, '0'); }
-
-function fmtTime(ms: number): string {
-  if (!ms || ms === 0) return '\u2014';
-  const mins = Math.floor(ms / 60000);
-  const secs = Math.floor((ms % 60000) / 1000);
-  const milli = ms % 1000;
-  return `${mins}:${pad2(secs)}.${pad3(milli)}`;
-}
-
-function fmtGap(ms: number): string {
-  if (ms < 60000) return (ms / 1000).toFixed(3);
-  const m = Math.floor(ms / 60000);
-  const s = ((ms % 60000) / 1000).toFixed(3);
-  return m + ':' + (parseFloat(s) < 10 ? '0' : '') + s;
-}
 
 const RaceRow = React.memo(function RaceRow({
   car,
   playerCarIndex,
   visibleColumns,
-}: RaceRowProps) {
+}: {
+  car: RaceEngineerCar & { idx: number };
+  playerCarIndex: number;
+  visibleColumns: boolean[];
+}) {
   const teamColor = TEAM_COLORS[car.teamId] || '#888';
   const isPlayer = car.idx === playerCarIndex;
   const isRetired = car.resultStatus >= 4;
@@ -69,7 +37,7 @@ const RaceRow = React.memo(function RaceRow({
       ? '+' + fmtGap(car.gapToAheadMs)
       : '\u2014';
 
-  const compColor = COMPOUND_COLORS[car.currentCompound] || '#888';
+  const compColor = COMPOUND_COLORS[car.currentCompound as keyof typeof COMPOUND_COLORS] || '#888';
 
   const status = isRetired
     ? (RESULT_STATUS[car.resultStatus] || 'RET')

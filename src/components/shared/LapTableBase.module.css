@@ -1,6 +1,5 @@
 .wrap {
-  margin-top: 1rem;
-  overflow-x: auto;
+  overflow: auto;
 }
 
 .table {
@@ -16,17 +15,19 @@
   color: var(--grey-light);
   border-bottom: 1px solid var(--border);
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .table td {
   padding: 5px 10px;
   border-bottom: 1px solid var(--border);
   color: var(--white);
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 .table tbody tr:hover {
   background: rgba(255, 255, 255, 0.04);
-  cursor: pointer;
 }
 
 .bestLap td:nth-child(2) {

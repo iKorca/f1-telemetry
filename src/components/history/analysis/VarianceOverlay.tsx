@@ -1,23 +1,11 @@
 import React, { useMemo } from 'react';
 import type { SessionDetail } from '@shared/types';
 import UPlotChart from '@/components/common/UPlotChart';
+import { resampleToLength } from '@/lib/chartUtils';
 import type uPlot from 'uplot';
 
 interface VarianceOverlayProps {
   session: SessionDetail;
-}
-
-function resampleToLength(arr: number[], targetLen: number): number[] {
-  if (arr.length === targetLen) return arr;
-  const result: number[] = [];
-  for (let i = 0; i < targetLen; i++) {
-    const srcIdx = (i / (targetLen - 1)) * (arr.length - 1);
-    const low = Math.floor(srcIdx);
-    const high = Math.min(low + 1, arr.length - 1);
-    const frac = srcIdx - low;
-    result.push(arr[low] * (1 - frac) + arr[high] * frac);
-  }
-  return result;
 }
 
 function VarianceOverlay({ session }: VarianceOverlayProps) {
