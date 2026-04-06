@@ -127,6 +127,43 @@
   50% { opacity: 0.3; }
 }
 
+/* Driver status badges */
+.dsBadge {
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 1px 5px;
+  border-radius: 2px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.dsGarage {
+  background: rgba(128, 128, 128, 0.25);
+  color: var(--grey);
+}
+
+.dsFlying {
+  background: rgba(57, 211, 83, 0.25);
+  color: var(--green);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.dsInLap {
+  background: rgba(255, 255, 0, 0.2);
+  color: var(--yellow);
+}
+
+.dsOutLap {
+  background: rgba(255, 165, 0, 0.25);
+  color: var(--orange);
+}
+
+.dsOnTrack {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--white);
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .header {

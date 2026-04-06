@@ -30,7 +30,13 @@ function ChartSection({
 
   const lapOptions = useMemo(() => {
     return (session.laps || [])
-      .map((l, i) => ({ label: `Lap ${l.lapNum}`, idx: i, deleted: l.deleted }))
+      .map((l, i) => {
+        let label = `Lap ${l.lapNum}`;
+        if (l.valid === false) label += ' (invalid)';
+        if (l.isOutLap) label += ' (out lap)';
+        if (l.isPitLap) label += ' (pit lap)';
+        return { label, idx: i, deleted: l.deleted };
+      })
       .filter((o) => !o.deleted);
   }, [session.laps]);
 

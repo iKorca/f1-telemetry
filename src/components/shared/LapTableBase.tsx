@@ -58,9 +58,13 @@ function LapTableBase({
             const isBest = i === bestLapIdx;
             const isFlash = showFlashAnimation && i === flashLapIdx;
 
+            const isOutLap = lap.isOutLap === true;
+            const isPitLap = lap.isPitLap === true;
+            const isDimmed = lap.valid === false || isOutLap || isPitLap;
+
             let cls = '';
             if (isBest) cls += ` ${styles.bestLap}`;
-            if (lap.valid === false) cls += ` ${styles.invalidLap}`;
+            if (isDimmed) cls += ` ${styles.dimmedLap}`;
             if (selectedLapIdx === i) cls += ` ${styles.selectedLap}`;
             if (isFlash) cls += ` ${styles.newLap}`;
 
@@ -107,7 +111,17 @@ function LapTableBase({
                 <td>
                   {lap.maxSpeed ? lap.maxSpeed + ' km/h' : '\u2014'}
                 </td>
-                <td>{lap.valid === false ? '\u2717' : '\u2713'}</td>
+                <td>
+                  {isOutLap ? (
+                    <span className={styles.badgeOut}>OUT</span>
+                  ) : isPitLap ? (
+                    <span className={styles.badgePit}>PIT</span>
+                  ) : lap.valid === false ? (
+                    '\u2717'
+                  ) : (
+                    '\u2713'
+                  )}
+                </td>
               </tr>
             );
           })}

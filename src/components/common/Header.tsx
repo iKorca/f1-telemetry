@@ -22,6 +22,7 @@ export default function Header() {
 
   const currentLap = useTimingStore((s) => s.currentLap);
   const playerName = useTimingStore((s) => s.playerName);
+  const driverStatus = useTimingStore((s) => s.allLapData?.playerData?.driverStatus ?? null);
 
   const connectionStatus = useUIStore((s) => s.connectionStatus);
   const isRecording = useUIStore((s) => s.isRecording);
@@ -57,6 +58,15 @@ export default function Header() {
       : connectionStatus === 'waiting'
         ? 'WAITING'
         : 'NO SIGNAL';
+
+  const DRIVER_STATUS_MAP: Record<number, { label: string; cls: string }> = {
+    0: { label: 'GARAGE', cls: styles.dsGarage },
+    1: { label: 'FLYING', cls: styles.dsFlying },
+    2: { label: 'IN LAP', cls: styles.dsInLap },
+    3: { label: 'OUT LAP', cls: styles.dsOutLap },
+    4: { label: 'ON TRACK', cls: styles.dsOnTrack },
+  };
+  const dsInfo = driverStatus !== null ? DRIVER_STATUS_MAP[driverStatus] : null;
 
   return (
     <header className={styles.header}>
@@ -101,7 +111,14 @@ export default function Header() {
 
       <div className={styles.hgroup}>
         <span className={styles.hlabel}>DRIVER</span>
-        <span className={styles.hvalue}>{playerName || '\u2014'}</span>
+        <span className={styles.hvalue}>
+          {playerName || '\u2014'}
+          {dsInfo && (
+            <span className={`${styles.dsBadge} ${dsInfo.cls}`}>
+              {dsInfo.label}
+            </span>
+          )}
+        </span>
       </div>
 
       <span className={scBadgeClass}>{scText}</span>

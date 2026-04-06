@@ -28,14 +28,14 @@ export function findBestLapIndex(laps: RecordedLap[]): number {
 }
 
 /**
- * Minimum speed (km/h) to consider the car "on track" vs in pit/garage.
- */
-const ON_TRACK_MIN_SPEED = 30;
-
-/**
  * Get telemetry frames for a specific lap from a session.
- * Trims garage/pit frames from start and end where car is stationary.
- * Also filters out frames where lap time goes backwards (pause menu / rewind).
+ *
+ * Strategy:
+ * 1. Slice raw frames from startFrameIdx..endFrameIdx
+ * 2. Find the lap-time reset point (where `t` drops significantly) — this is
+ *    where the car crossed the S/F line and the actual lap begins
+ * 3. Cap frames at lapTimeMs after the reset point
+ * 4. Filter out backwards time jumps (pause menu / rewind)
  */
 export function getFramesForLap(
   session: SessionDetail,
@@ -51,23 +51,31 @@ export function getFramesForLap(
 
   if (raw.length < 2) return raw;
 
-  // Trim leading frames where car is stationary (garage/pit)
-  let start = 0;
-  while (start < raw.length && raw[start].s < ON_TRACK_MIN_SPEED) {
-    start++;
+  // Step 1: Find the LAST significant time reset (t drops by > 50%)
+  // This marks where the actual lap timing starts (S/F line crossing)
+  let resetIdx = 0;
+  for (let i = 1; i < raw.length; i++) {
+    if (raw[i].t < raw[i - 1].t - 5000) {
+      // Time dropped by more than 5 seconds — this is a lap reset
+      resetIdx = i;
+    }
   }
 
-  // Trim trailing frames where car is stationary (pit entry / garage)
-  let end = raw.length - 1;
-  while (end > start && raw[end].s < ON_TRACK_MIN_SPEED) {
-    end--;
+  // Step 2: Take frames from reset point onward
+  let trimmed = raw.slice(resetIdx);
+
+  // Step 3: If we have a valid lap time, cap frames within lapTimeMs + margin
+  if (lap.lapTimeMs > 0 && trimmed.length > 2) {
+    const startT = trimmed[0].t;
+    const maxT = startT + lap.lapTimeMs + 2000; // 2s margin
+    const capIdx = trimmed.findIndex((f) => f.t > maxT);
+    if (capIdx > 0) {
+      trimmed = trimmed.slice(0, capIdx);
+    }
   }
 
-  const trimmed = raw.slice(start, end + 1);
+  // Step 4: Filter frames where time goes backwards (pause/rewind)
   if (trimmed.length < 2) return trimmed;
-
-  // Filter out frames where lap time goes backwards (pause menu / rewind)
-  // Lap time should be monotonically increasing during a clean lap
   const cleaned: TelemetryFrame[] = [trimmed[0]];
   let lastT = trimmed[0].t;
   for (let i = 1; i < trimmed.length; i++) {
@@ -75,7 +83,6 @@ export function getFramesForLap(
       cleaned.push(trimmed[i]);
       lastT = trimmed[i].t;
     }
-    // Skip frames where time went backwards (pause/rewind)
   }
 
   return cleaned;

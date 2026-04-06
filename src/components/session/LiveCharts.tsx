@@ -182,6 +182,9 @@ function LiveCharts({
               <option value={i} key={i}>
                 Lap {l.lapNum}
                 {i === bestIdx ? ' (best)' : ''}
+                {l.valid === false ? ' (invalid)' : ''}
+                {l.isOutLap ? ' (out lap)' : ''}
+                {l.isPitLap ? ' (pit lap)' : ''}
               </option>
             ),
           )}
@@ -197,6 +200,9 @@ function LiveCharts({
               <option value={i} key={i}>
                 Lap {l.lapNum}
                 {i === bestIdx ? ' (best)' : ''}
+                {l.valid === false ? ' (invalid)' : ''}
+                {l.isOutLap ? ' (out lap)' : ''}
+                {l.isPitLap ? ' (pit lap)' : ''}
               </option>
             ),
           )}

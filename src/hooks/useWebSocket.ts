@@ -4,6 +4,8 @@ import { useSessionInfoStore } from '../store/sessionInfoStore';
 import { useTimingStore } from '../store/timingStore';
 import { useRaceStore } from '../store/raceStore';
 import { useUIStore } from '../store/uiStore';
+import { useHistoryStore } from '../store/historyStore';
+import * as api from '../lib/api';
 import type { WSMessage, CarSetupsData } from '@shared/types';
 
 /**
@@ -17,6 +19,7 @@ export function useWebSocket(): void {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const carSetupsRef = useRef<CarSetupsData | null>(null);
+  const prevRecordingRef = useRef<boolean>(false);
 
   useEffect(() => {
     function connect() {
@@ -94,9 +97,18 @@ export function useWebSocket(): void {
           case 'raceEngineer':
             useRaceStore.getState().handleRaceEngineer(data);
             break;
-          case 'recStatus':
+          case 'recStatus': {
+            const wasRecording = prevRecordingRef.current;
+            prevRecordingRef.current = data.isRecording;
             useUIStore.getState().handleRecStatus(data);
+            // When recording just stopped, refresh the history session list
+            if (wasRecording && !data.isRecording) {
+              api.getSessions().then((list) => {
+                useHistoryStore.getState().setSessions(list);
+              }).catch(() => {});
+            }
             break;
+          }
           case 'tunnel':
             useUIStore.getState().handleTunnel(data);
             break;

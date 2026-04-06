@@ -16,6 +16,29 @@
   flex-shrink: 0;
 }
 
+.filterRow {
+  padding: 0.4rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.trackSelect {
+  width: 100%;
+  background: var(--bg);
+  color: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 4px 6px;
+  font-family: var(--font-d);
+  font-size: 0.62rem;
+  cursor: pointer;
+  outline: none;
+}
+
+.trackSelect:focus {
+  border-color: var(--blue);
+}
+
 .list {
   flex: 1;
   overflow-y: auto;
