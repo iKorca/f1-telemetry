@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 
@@ -13,59 +13,74 @@ interface UPlotChartProps {
 function UPlotChart({ options, data, width, height, plugins }: UPlotChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<uPlot | null>(null);
-  const prevSeriesLenRef = useRef<number>(0);
 
-  const createChart = useCallback(() => {
-    if (!containerRef.current) return;
+  // Track series count to know when to recreate vs just setData
+  const seriesCount = options.series?.length ?? 0;
 
-    // Destroy existing
+  // Stable key: recreate chart when series structure changes
+  // This avoids complex effect dependency issues
+  const structureKey = useMemo(() => {
+    return `${seriesCount}-${height ?? 300}`;
+  }, [seriesCount, height]);
+
+  // Create/recreate chart when structure changes
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Destroy previous
     if (chartRef.current) {
       chartRef.current.destroy();
       chartRef.current = null;
     }
 
-    const container = containerRef.current;
-    const w = width ?? container.clientWidth;
+    // Don't create with empty data
+    if (!data || data.length === 0 || !data[0] || data[0].length < 2) return;
+
+    const w = width ?? container.clientWidth ?? 600;
     const h = height ?? 300;
 
     const fullOpts: uPlot.Options = {
       ...options,
-      width: w,
+      width: Math.max(w, 100),
       height: h,
       plugins: plugins || [],
     } as uPlot.Options;
 
-    chartRef.current = new uPlot(fullOpts, data, container);
-    prevSeriesLenRef.current = options.series?.length ?? 0;
-  }, [options, data, width, height, plugins]);
+    try {
+      chartRef.current = new uPlot(fullOpts, data, container);
+    } catch (err) {
+      console.error('UPlotChart create error:', err);
+    }
 
-  // Create chart on mount
-  useEffect(() => {
-    createChart();
     return () => {
       if (chartRef.current) {
         chartRef.current.destroy();
         chartRef.current = null;
       }
     };
-    // Only recreate on mount; updates handled by data/options effects
+    // Recreate when structure changes (series count, height)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [structureKey]);
 
-  // On data change: setData (don't recreate)
+  // Update data without recreating
   useEffect(() => {
-    if (chartRef.current) {
+    if (!chartRef.current) return;
+    if (!data || data.length === 0) return;
+
+    // Verify data array count matches series count
+    const expectedLen = chartRef.current.series.length;
+    if (data.length !== expectedLen) {
+      // Structural mismatch — skip setData, let recreate handle it
+      return;
+    }
+
+    try {
       chartRef.current.setData(data);
+    } catch (err) {
+      console.error('UPlotChart setData error:', err);
     }
   }, [data]);
-
-  // On structural option change (series count): recreate
-  useEffect(() => {
-    const newLen = options.series?.length ?? 0;
-    if (newLen !== prevSeriesLenRef.current && chartRef.current) {
-      createChart();
-    }
-  }, [options.series?.length, createChart]);
 
   // ResizeObserver for responsive width
   useEffect(() => {
