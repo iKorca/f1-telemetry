@@ -4,6 +4,7 @@ import UPlotChart from '@/components/common/UPlotChart';
 import MiniSectors from '@/components/shared/MiniSectors';
 import CoachingHints from '@/components/shared/CoachingHints';
 import VarianceOverlay from '../analysis/VarianceOverlay';
+import { getFramesForLap } from '@/lib/lapUtils';
 import { findSectorBoundaries, sectorOverlayPlugin, resampleToLength } from '@/lib/chartUtils';
 import type uPlot from 'uplot';
 import styles from './ChartSection.module.css';
@@ -37,10 +38,7 @@ function ChartSection({
     const lap = session.laps[selectedLapIdx];
     if (!lap)
       return { frames: [], cmpFrames: null, sectorPlugin: {} as uPlot.Plugin };
-    const f = session.frames.slice(
-      lap.startFrameIdx,
-      (lap.endFrameIdx || session.frames.length) + 1,
-    );
+    const f = getFramesForLap(session, selectedLapIdx);
     const si = findSectorBoundaries(f, lap);
     const sp = sectorOverlayPlugin(si, {
       colors: ['rgba(160, 32, 240, 0.4)', 'rgba(255, 215, 0, 0.4)'],
@@ -51,11 +49,7 @@ function ChartSection({
       compareLapIdx !== null &&
       session.laps[compareLapIdx]
     ) {
-      const cmpLap = session.laps[compareLapIdx];
-      cf = session.frames.slice(
-        cmpLap.startFrameIdx,
-        (cmpLap.endFrameIdx || session.frames.length) + 1,
-      );
+      cf = getFramesForLap(session, compareLapIdx);
     }
     return { frames: f, cmpFrames: cf, sectorPlugin: sp };
   }, [session, selectedLapIdx, compareLapIdx]);

@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import type { SessionDetail } from '@shared/types';
+import { findBestLapIndex } from '@/lib/lapUtils';
 import LapTableBase from '@/components/shared/LapTableBase';
 
 interface LiveLapTableProps {
@@ -13,20 +14,7 @@ function LiveLapTable({ session, selectedLap, onLapClick }: LiveLapTableProps) {
 
   const { laps, bestIdx } = useMemo(() => {
     const laps = session.laps || [];
-    let bestTime = Infinity;
-    let bestIdx = -1;
-    laps.forEach((l, i) => {
-      if (
-        l.lapTimeMs > 0 &&
-        l.valid !== false &&
-        !l.deleted &&
-        l.lapTimeMs < bestTime
-      ) {
-        bestTime = l.lapTimeMs;
-        bestIdx = i;
-      }
-    });
-    return { laps, bestIdx };
+    return { laps, bestIdx: findBestLapIndex(laps) };
   }, [session.laps]);
 
   // Track new laps for flash animation

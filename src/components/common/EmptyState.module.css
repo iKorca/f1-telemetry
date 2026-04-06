@@ -1,0 +1,10 @@
+.empty {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--grey);
+  font-family: var(--font-d);
+  font-size: 0.9rem;
+  letter-spacing: 0.15em;
+}

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import type { SessionDetail } from '@shared/types';
+import { findBestLapIndex } from '@/lib/lapUtils';
 import LapTableBase from '@/components/shared/LapTableBase';
 
 interface LapTableProps {
@@ -16,16 +17,7 @@ function LapTable({
   onContextMenu,
 }: LapTableProps) {
   const bestIdx = useMemo(() => {
-    const allLaps = session.laps || [];
-    let bestTime = Infinity;
-    let best = -1;
-    allLaps.forEach((lap, idx) => {
-      if (!lap.deleted && lap.valid && lap.lapTimeMs > 0 && lap.lapTimeMs < bestTime) {
-        bestTime = lap.lapTimeMs;
-        best = idx;
-      }
-    });
-    return best;
+    return findBestLapIndex(session.laps || []);
   }, [session.laps]);
 
   return (

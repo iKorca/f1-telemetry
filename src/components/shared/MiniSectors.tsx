@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import type { SessionDetail } from '@shared/types';
+import { getFramesForLap } from '@/lib/lapUtils';
 import styles from './MiniSectors.module.css';
 
 interface MiniSectorsProps {
@@ -14,10 +15,7 @@ function MiniSectors({ session, lapIdx, compareLapIdx }: MiniSectorsProps) {
   const data = useMemo(() => {
     const lap = session.laps[lapIdx];
     if (!lap) return null;
-    const frames = session.frames.slice(
-      lap.startFrameIdx,
-      (lap.endFrameIdx || session.frames.length) + 1,
-    );
+    const frames = getFramesForLap(session, lapIdx);
     if (frames.length < SECTORS) return null;
 
     const segLen = Math.floor(frames.length / SECTORS);
@@ -35,11 +33,7 @@ function MiniSectors({ session, lapIdx, compareLapIdx }: MiniSectorsProps) {
       compareLapIdx !== undefined &&
       session.laps[compareLapIdx]
     ) {
-      const cmpLap = session.laps[compareLapIdx];
-      const cmpFrames = session.frames.slice(
-        cmpLap.startFrameIdx,
-        (cmpLap.endFrameIdx || session.frames.length) + 1,
-      );
+      const cmpFrames = getFramesForLap(session, compareLapIdx);
       if (cmpFrames.length >= SECTORS) {
         const cmpSegLen = Math.floor(cmpFrames.length / SECTORS);
         cmpSegTimes = [];

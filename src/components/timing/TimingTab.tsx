@@ -1,5 +1,6 @@
 import { useTimingStore } from '../../store/timingStore';
 import TimingRow from './TimingRow';
+import EmptyState from '@/components/common/EmptyState';
 import styles from './TimingTab.module.css';
 
 interface SortedCar {
@@ -16,7 +17,7 @@ export default function TimingTab() {
   const playerCarIndex = useTimingStore((s) => s.playerCarIndex);
 
   if (!allLapData?.allCars || !allParticipants?.participants) {
-    return <div className={styles.empty}>WAITING FOR TIMING DATA...</div>;
+    return <EmptyState message="WAITING FOR TIMING DATA..." />;
   }
 
   const cars = allLapData.allCars;

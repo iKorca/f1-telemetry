@@ -2,6 +2,7 @@ import React, { useEffect, useCallback } from 'react';
 import { useHistoryStore } from '@/store/historyStore';
 import * as api from '@/lib/api';
 import SessionItem from './SessionItem';
+import EmptyState from '@/components/common/EmptyState';
 import styles from './SessionList.module.css';
 
 function SessionList() {
@@ -44,7 +45,7 @@ function SessionList() {
       <div className={styles.header}>RECORDED SESSIONS</div>
       <div className={styles.list}>
         {sessions.length === 0 ? (
-          <div className={styles.empty}>No sessions recorded yet.</div>
+          <EmptyState message="No sessions recorded yet." />
         ) : (
           sessions.map((s) => (
             <SessionItem

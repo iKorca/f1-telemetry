@@ -3,6 +3,7 @@ import type { SessionDetail } from '@shared/types';
 import UPlotChart from '@/components/common/UPlotChart';
 import MiniSectors from '@/components/shared/MiniSectors';
 import CoachingHints from '@/components/shared/CoachingHints';
+import { findBestLapIndex, getFramesForLap } from '@/lib/lapUtils';
 import { findSectorBoundaries, sectorOverlayPlugin } from '@/lib/chartUtils';
 import type uPlot from 'uplot';
 import styles from './LiveCharts.module.css';
@@ -27,32 +28,14 @@ function LiveCharts({
   const laps = session.laps || [];
 
   // Find best lap index for select labels
-  const bestIdx = useMemo(() => {
-    let best = -1;
-    let bestTime = Infinity;
-    laps.forEach((l, i) => {
-      if (
-        l.lapTimeMs > 0 &&
-        l.valid !== false &&
-        !l.deleted &&
-        l.lapTimeMs < bestTime
-      ) {
-        bestTime = l.lapTimeMs;
-        best = i;
-      }
-    });
-    return best;
-  }, [laps]);
+  const bestIdx = useMemo(() => findBestLapIndex(laps), [laps]);
 
   const chartData = useMemo(() => {
     if (selectedLap === null) return null;
     const lap = laps[selectedLap];
     if (!lap) return null;
 
-    const frames = session.frames.slice(
-      lap.startFrameIdx,
-      (lap.endFrameIdx || session.frames.length) + 1,
-    );
+    const frames = getFramesForLap(session, selectedLap);
     if (frames.length < 2) return null;
 
     const xData = frames.map((_, i) => i);
@@ -61,11 +44,7 @@ function LiveCharts({
     let cmpFrames: typeof frames | null = null;
     let cmpX: number[] | null = null;
     if (compareLap !== null && laps[compareLap]) {
-      const cmpLap = laps[compareLap];
-      cmpFrames = session.frames.slice(
-        cmpLap.startFrameIdx,
-        (cmpLap.endFrameIdx || session.frames.length) + 1,
-      );
+      cmpFrames = getFramesForLap(session, compareLap);
       cmpX = cmpFrames.map((_, i) => i);
     }
 

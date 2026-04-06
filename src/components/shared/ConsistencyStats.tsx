@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import type { SessionDetail } from '@shared/types';
 import { fmtTime } from '@/lib/formatters';
+import { getValidLaps } from '@/lib/lapUtils';
 import styles from './ConsistencyStats.module.css';
 
 interface ConsistencyStatsProps {
@@ -9,9 +10,7 @@ interface ConsistencyStatsProps {
 
 function ConsistencyStats({ session }: ConsistencyStatsProps) {
   const stats = useMemo(() => {
-    const laps = (session.laps || []).filter(
-      (l) => l.lapTimeMs > 0 && l.valid !== false && !l.deleted,
-    );
+    const laps = getValidLaps(session.laps || []);
     if (laps.length < 2) return null;
 
     const times = laps.map((l) => l.lapTimeMs);

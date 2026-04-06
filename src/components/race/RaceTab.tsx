@@ -5,6 +5,7 @@ import ColumnPicker from './ColumnPicker';
 import RaceTable from './RaceTable';
 import PitPredictor from './PitPredictor';
 import WeatherImpact from './WeatherImpact';
+import EmptyState from '@/components/common/EmptyState';
 import styles from './RaceTab.module.css';
 
 // 11 columns: all visible by default
@@ -27,7 +28,7 @@ function RaceTab() {
   if (!raceState || !raceState.active) {
     return (
       <div className={styles.wrapper}>
-        <div className={styles.placeholder}>No race data</div>
+        <EmptyState message="No race data" />
       </div>
     );
   }

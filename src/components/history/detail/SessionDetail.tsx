@@ -12,6 +12,7 @@ import RaceAnalysis from '../analysis/RaceAnalysis';
 import TrackMapHistory from '../analysis/TrackMapHistory';
 import DriverComparison from '../analysis/DriverComparison';
 import LapContextMenu from '../modals/LapContextMenu';
+import EmptyState from '@/components/common/EmptyState';
 import styles from './SessionDetail.module.css';
 
 function SessionDetail() {
@@ -99,11 +100,7 @@ function SessionDetail() {
   }, [currentSessionId, setCurrentSession]);
 
   if (!currentSessionId || !currentSession) {
-    return (
-      <div className={styles.placeholder}>
-        Select a session to view details
-      </div>
-    );
+    return <EmptyState message="Select a session to view details" />;
   }
 
   const isRace = /race|sprint/i.test(currentSession.sessionType || '');

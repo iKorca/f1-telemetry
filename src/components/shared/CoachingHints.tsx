@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import type { SessionDetail } from '@shared/types';
+import { findBestLapIndex, getFramesForLap } from '@/lib/lapUtils';
 import styles from './CoachingHints.module.css';
 
 interface CoachingHintsProps {
@@ -20,33 +21,14 @@ function CoachingHints({ session, lapIdx }: CoachingHintsProps) {
   const tips = useMemo((): Tip[] | null => {
     const lap = session.laps[lapIdx];
     if (!lap) return null;
-    const frames = session.frames.slice(
-      lap.startFrameIdx,
-      (lap.endFrameIdx || session.frames.length) + 1,
-    );
+    const frames = getFramesForLap(session, lapIdx);
     if (frames.length < 24) return null;
 
     // Find best lap
-    let bestIdx = -1;
-    let bestTime = Infinity;
-    session.laps.forEach((l, i) => {
-      if (
-        l.lapTimeMs > 0 &&
-        l.valid !== false &&
-        !l.deleted &&
-        l.lapTimeMs < bestTime
-      ) {
-        bestTime = l.lapTimeMs;
-        bestIdx = i;
-      }
-    });
+    const bestIdx = findBestLapIndex(session.laps);
     if (bestIdx === -1 || bestIdx === lapIdx) return null;
 
-    const bestLap = session.laps[bestIdx];
-    const bestFrames = session.frames.slice(
-      bestLap.startFrameIdx,
-      (bestLap.endFrameIdx || session.frames.length) + 1,
-    );
+    const bestFrames = getFramesForLap(session, bestIdx);
     if (bestFrames.length < 24) return null;
 
     const result: Tip[] = [];

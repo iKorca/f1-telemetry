@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import type { SessionDetail } from '@shared/types';
 import * as api from '@/lib/api';
+import { getFramesForLap } from '@/lib/lapUtils';
 import styles from './TrackMapHistory.module.css';
 
 interface TrackMapHistoryProps {
@@ -62,10 +63,7 @@ function TrackMapHistory({ session, lapIdx }: TrackMapHistoryProps) {
 
     const lap = session.laps[lapIdx];
     if (!lap) return;
-    const frames = session.frames.slice(
-      lap.startFrameIdx,
-      (lap.endFrameIdx || session.frames.length) + 1,
-    );
+    const frames = getFramesForLap(session, lapIdx);
     if (frames.length < 2) return;
 
     // Extract channel values

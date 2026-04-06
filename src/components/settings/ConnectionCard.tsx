@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { getNetworkInfo } from '@/lib/api';
-import type { NetworkInfo } from '@shared/types';
+import { useFetchData } from '@/hooks/useFetchData';
 import styles from './ConnectionCard.module.css';
 
 interface Props {
@@ -13,18 +13,17 @@ interface Props {
 }
 
 function ConnectionCard({ udpPort, httpPort, speedUnit, onUdpPort, onHttpPort, onSpeedUnit }: Props) {
-  const [ips, setIps] = useState<string[]>([]);
-  const [netHttpPort, setNetHttpPort] = useState<number>(3000);
+  const { data: netInfo } = useFetchData(
+    () => getNetworkInfo(),
+    [],
+    { onError: (err) => console.error('loadNetworkInfo error:', err) },
+  );
 
-  useEffect(() => {
-    getNetworkInfo()
-      .then((data: NetworkInfo) => {
-        setNetHttpPort(data.httpPort);
-        const ipList = (data as any).ips || data.localIPs || [];
-        setIps(ipList.map((i: { address: string }) => `http://${i.address}:${data.httpPort}`));
-      })
-      .catch((err) => console.error('loadNetworkInfo error:', err));
-  }, []);
+  const ips: string[] = netInfo
+    ? ((netInfo as any).ips || netInfo.localIPs || []).map(
+        (i: { address: string }) => `http://${i.address}:${netInfo.httpPort}`,
+      )
+    : [];
 
   return (
     <div className={styles.card}>
