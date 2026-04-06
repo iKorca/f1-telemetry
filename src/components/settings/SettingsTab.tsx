@@ -165,14 +165,14 @@ function SettingsTab() {
           onSubdomain={setSubdomain}
         />
 
-        <div className={styles.saveRow}>
+        <div className={`${styles.saveRow} ${styles.fullWidth}`}>
           <button className={styles.btnPrimary} onClick={handleSave}>
             Save Settings
           </button>
           <span className={styles.saveStatus}>{saveStatus}</span>
         </div>
 
-        <div className={styles.shortcutsCard}>
+        <div className={`${styles.shortcutsCard} ${styles.fullWidth}`}>
           <div className={styles.cardTitle}>Keyboard Shortcuts</div>
           <div className={styles.shortcutList}>
             {shortcutsList.map((s) => (

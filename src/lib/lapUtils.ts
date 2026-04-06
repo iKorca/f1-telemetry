@@ -34,8 +34,8 @@ export function getFramesForLap(
   session: SessionDetail,
   lapIdx: number,
 ): TelemetryFrame[] {
-  const lap = session.laps[lapIdx];
-  if (!lap) return [];
+  const lap = session.laps?.[lapIdx];
+  if (!lap || !session.frames) return [];
   return session.frames.slice(
     lap.startFrameIdx,
     (lap.endFrameIdx || session.frames.length) + 1,

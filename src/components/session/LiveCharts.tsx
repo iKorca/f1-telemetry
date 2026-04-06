@@ -44,8 +44,11 @@ function LiveCharts({
     let cmpFrames: typeof frames | null = null;
     let cmpX: number[] | null = null;
     if (compareLap !== null && laps[compareLap]) {
-      cmpFrames = getFramesForLap(session, compareLap);
-      cmpX = cmpFrames.map((_, i) => i);
+      const rawCmp = getFramesForLap(session, compareLap);
+      if (rawCmp.length >= 2) {
+        cmpFrames = rawCmp;
+        cmpX = rawCmp.map((_, i) => i);
+      }
     }
 
     return { frames, xData, sectorIndices, cmpFrames, cmpX };

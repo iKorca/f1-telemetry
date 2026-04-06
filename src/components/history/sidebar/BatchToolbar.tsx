@@ -45,16 +45,18 @@ function BatchToolbar() {
     setSessions,
   ]);
 
-  if (selectedSessions.size === 0) return null;
+  if (sessions.length === 0) return null;
 
   return (
     <div className={styles.toolbar}>
       <button className="btn btn-small" onClick={handleSelectAll}>
         {allChecked ? 'Deselect All' : 'Select All'}
       </button>
-      <button className="btn btn-small btn-danger" onClick={handleDeleteSelected}>
-        Delete Selected ({selectedSessions.size})
-      </button>
+      {selectedSessions.size > 0 && (
+        <button className="btn btn-small btn-danger" onClick={handleDeleteSelected}>
+          Delete Selected ({selectedSessions.size})
+        </button>
+      )}
     </div>
   );
 }
