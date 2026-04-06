@@ -90,47 +90,45 @@ export function resampleToLength(arr: number[], targetLen: number): number[] {
 }
 
 /**
- * Resample a comparison lap's values to align with the primary lap's time points.
- * Uses the `t` (lap time in ms) field from each frame for time-based alignment.
- * Both laps are normalised to start at t=0 so they align from the S/F line.
+ * Normalise an array of lap times to [0..1] (percentage through the lap).
+ * This aligns laps by track position rather than absolute time.
  */
-export function resampleByTime(
-  primaryTimes: number[],
-  cmpTimes: number[],
+export function normaliseTimes(times: number[]): number[] {
+  if (times.length < 2) return times.map(() => 0);
+  const start = times[0];
+  const range = times[times.length - 1] - start;
+  if (range <= 0) return times.map(() => 0);
+  return times.map((t) => (t - start) / range);
+}
+
+/**
+ * Resample comparison values to align with primary lap by normalised position.
+ * Both laps are normalised to 0..1 (percentage through lap) so they align
+ * by track position regardless of absolute timing differences.
+ */
+export function resampleByPosition(
+  primaryNorm: number[],
+  cmpNorm: number[],
   cmpValues: number[],
 ): number[] {
-  if (cmpTimes.length < 2) return primaryTimes.map(() => 0);
-
-  const pStart = primaryTimes[0];
-  const cStart = cmpTimes[0];
-
-  // Normalise both to start at 0
-  const pNorm = primaryTimes.map((t) => t - pStart);
-  const cNorm = cmpTimes.map((t) => t - cStart);
-  const cMax = cNorm[cNorm.length - 1];
+  if (cmpNorm.length < 2) return primaryNorm.map(() => 0);
 
   const result: number[] = [];
   let ci = 0;
 
-  for (let i = 0; i < pNorm.length; i++) {
-    const target = pNorm[i];
+  for (let i = 0; i < primaryNorm.length; i++) {
+    const target = primaryNorm[i];
 
-    // Clamp to comparison lap range
-    if (target <= 0) {
-      result.push(cmpValues[0]);
-      continue;
-    }
-    if (target >= cMax) {
-      result.push(cmpValues[cmpValues.length - 1]);
-      continue;
-    }
+    // Clamp
+    if (target <= 0) { result.push(cmpValues[0]); continue; }
+    if (target >= 1) { result.push(cmpValues[cmpValues.length - 1]); continue; }
 
     // Advance pointer
-    while (ci < cNorm.length - 2 && cNorm[ci + 1] < target) ci++;
+    while (ci < cmpNorm.length - 2 && cmpNorm[ci + 1] < target) ci++;
 
     // Interpolate
-    const t0 = cNorm[ci];
-    const t1 = cNorm[ci + 1];
+    const t0 = cmpNorm[ci];
+    const t1 = cmpNorm[ci + 1];
     const frac = t1 > t0 ? (target - t0) / (t1 - t0) : 0;
     result.push(cmpValues[ci] * (1 - frac) + cmpValues[ci + 1] * frac);
   }

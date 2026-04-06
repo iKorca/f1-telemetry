@@ -5,7 +5,7 @@ import MiniSectors from '@/components/shared/MiniSectors';
 import CoachingHints from '@/components/shared/CoachingHints';
 import VarianceOverlay from '../analysis/VarianceOverlay';
 import { getFramesForLap } from '@/lib/lapUtils';
-import { findSectorBoundariesByTime, sectorOverlayPluginTime, resampleByTime } from '@/lib/chartUtils';
+import { findSectorBoundariesByTime, sectorOverlayPluginTime, normaliseTimes, resampleByPosition } from '@/lib/chartUtils';
 import type uPlot from 'uplot';
 import styles from './ChartSection.module.css';
 
@@ -61,20 +61,36 @@ function ChartSection({
     return { frames: f, cmpFrames: cf, sectorPlugin: sp };
   }, [session, selectedLapIdx, compareLapIdx]);
 
-  // Use lap time as x-axis so laps align from S/F line
+  // Format ms as M:SS.mmm
+  const fmtMs = (ms: number) => {
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    const milli = Math.floor(ms % 1000);
+    return `${m}:${String(sec).padStart(2, '0')}.${String(milli).padStart(3, '0')}`;
+  };
+
+  // X-series config — shows time in legend
+  const xSer: uPlot.Series = {
+    value: (_u: uPlot, v: number) => v != null ? fmtMs(v) : '--',
+  };
+
+  // Normalise lap times to [0..1] for alignment, but use actual time for x-axis display
   const pTimes = useMemo(() => frames.map((f) => f.t), [frames]);
   const cTimes = useMemo(() => cmpFrames?.map((f) => f.t) ?? [], [cmpFrames]);
+  const pNorm = useMemo(() => normaliseTimes(pTimes), [pTimes]);
+  const cNorm = useMemo(() => normaliseTimes(cTimes), [cTimes]);
 
   // Speed chart
   const speedData = useMemo(() => {
     if (frames.length < 2) return null;
     const series: uPlot.Series[] = [
-      {},
+      xSer,
       { label: 'Speed', stroke: '#f0f0f0', width: 1.5 },
     ];
     const data: uPlot.AlignedData = [pTimes, frames.map((f) => f.s)];
     if (cmpFrames && cmpFrames.length > 1) {
-      const cmpY = resampleByTime(pTimes, cTimes, cmpFrames.map((f) => f.s));
+      const cmpY = resampleByPosition(pNorm, cNorm, cmpFrames.map((f) => f.s));
       series.push({ label: 'Compare', stroke: '#3b82f6', width: 1.5 });
       data.push(cmpY);
     }
@@ -85,7 +101,7 @@ function ChartSection({
   const inputsData = useMemo(() => {
     if (frames.length < 2) return null;
     const series: uPlot.Series[] = [
-      {},
+      xSer,
       { label: 'Throttle', stroke: '#39d353', width: 1.5 },
       { label: 'Brake', stroke: '#e8002d', width: 1.5 },
     ];
@@ -95,8 +111,8 @@ function ChartSection({
       frames.map((f) => f.br),
     ];
     if (cmpFrames && cmpFrames.length > 1) {
-      const cmpTh = resampleByTime(pTimes, cTimes, cmpFrames.map((f) => f.th));
-      const cmpBr = resampleByTime(pTimes, cTimes, cmpFrames.map((f) => f.br));
+      const cmpTh = resampleByPosition(pNorm, cNorm, cmpFrames.map((f) => f.th));
+      const cmpBr = resampleByPosition(pNorm, cNorm, cmpFrames.map((f) => f.br));
       series.push(
         { label: 'Throttle (cmp)', stroke: 'rgba(57,211,83,0.4)', width: 1 },
         { label: 'Brake (cmp)', stroke: 'rgba(232,0,45,0.4)', width: 1 },
@@ -110,12 +126,12 @@ function ChartSection({
   const gearData = useMemo(() => {
     if (frames.length < 2) return null;
     const series: uPlot.Series[] = [
-      {},
+      xSer,
       { label: 'Gear', stroke: '#f5c518', width: 1.5 },
     ];
     const data: uPlot.AlignedData = [pTimes, frames.map((f) => f.g)];
     if (cmpFrames && cmpFrames.length > 1) {
-      const cmpG = resampleByTime(pTimes, cTimes, cmpFrames.map((f) => f.g));
+      const cmpG = resampleByPosition(pNorm, cNorm, cmpFrames.map((f) => f.g));
       series.push({ label: 'Gear (cmp)', stroke: '#3b82f6', width: 1.5 });
       data.push(cmpG);
     }
@@ -126,7 +142,7 @@ function ChartSection({
   const deltaData = useMemo(() => {
     if (frames.length < 2 || !cmpFrames || cmpFrames.length < 2)
       return null;
-    const cmpResampled = resampleByTime(pTimes, cTimes, cTimes);
+    const cmpResampled = resampleByPosition(pNorm, cNorm, cTimes);
     const pStart = pTimes[0];
     const cStart = cTimes[0];
     const delta = pTimes.map(
@@ -134,7 +150,7 @@ function ChartSection({
     );
     return {
       series: [
-        {},
+        xSer,
         {
           label: 'Delta',
           stroke: '#f0f0f0',
@@ -176,10 +192,17 @@ function ChartSection({
   const chartOpts: Partial<uPlot.Options> = {
     scales: { x: { time: false } },
     axes: [
-      { show: false },
+      {
+        stroke: '#555575',
+        grid: { stroke: '#1c1c2e' },
+        values: (_u: uPlot, vals: number[]) => vals.map(fmtMs),
+      },
       { stroke: '#555575', grid: { stroke: '#1c1c2e' } },
     ],
-    cursor: { show: true },
+    cursor: {
+      show: true,
+      sync: { key: 'history-charts', setSeries: true },
+    },
   };
 
   return (

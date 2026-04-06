@@ -4,7 +4,7 @@ import UPlotChart from '@/components/common/UPlotChart';
 import MiniSectors from '@/components/shared/MiniSectors';
 import CoachingHints from '@/components/shared/CoachingHints';
 import { findBestLapIndex, getFramesForLap } from '@/lib/lapUtils';
-import { findSectorBoundariesByTime, sectorOverlayPluginTime, resampleByTime } from '@/lib/chartUtils';
+import { findSectorBoundariesByTime, sectorOverlayPluginTime, normaliseTimes, resampleByPosition } from '@/lib/chartUtils';
 import type uPlot from 'uplot';
 import styles from './LiveCharts.module.css';
 
@@ -69,6 +69,8 @@ function LiveCharts({
 
   const { frames, xData, sectorTimes, cmpFrames } = chartData;
   const cTimes = cmpFrames?.map((f) => f.t) ?? [];
+  const pNorm = normaliseTimes(xData);
+  const cNorm = normaliseTimes(cTimes);
   const sectorPlugin = sectorOverlayPluginTime(sectorTimes, {
     lineWidth: 1,
     lineDash: [4, 4],
@@ -76,26 +78,55 @@ function LiveCharts({
 
   const hasCmp = cmpFrames && cmpFrames.length > 1;
 
+  // Format ms as M:SS.mmm for axis and legend
+  const fmtLapTime = (ms: number) => {
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    const milli = Math.floor(ms % 1000);
+    return `${m}:${String(sec).padStart(2, '0')}.${String(milli).padStart(3, '0')}`;
+  };
+
+  // X-series: shows time in legend
+  const xSer: uPlot.Series = {
+    value: (_u: uPlot, v: number) => v != null ? fmtLapTime(v) : '--',
+  };
+
+  // Shared chart config: time x-axis + synced cursor
+  const sharedAxes: uPlot.Axis[] = [
+    {
+      stroke: '#555575',
+      grid: { stroke: '#1c1c2e' },
+      values: (_u: uPlot, vals: number[]) => vals.map(fmtLapTime),
+    },
+    { stroke: '#555575', grid: { stroke: '#1c1c2e' } },
+  ];
+  const sharedCursor: uPlot.Cursor = {
+    show: true,
+    sync: { key: 'session-charts', setSeries: true },
+  };
+
   // Speed chart
   const speedOpts: Partial<uPlot.Options> = {
     series: [
-      {},
+      xSer,
       { label: 'Speed', stroke: '#f0f0f0', width: 2 },
       ...(hasCmp ? [{ label: 'Compare', stroke: '#3b82f6', width: 1.5 } as uPlot.Series] : []),
     ],
-    axes: [{ show: false }, { label: 'km/h' }],
+    axes: sharedAxes,
     scales: { x: { time: false } },
+    cursor: sharedCursor,
   };
   const speedData: uPlot.AlignedData = [
     xData,
     frames.map((f) => f.s),
-    ...(hasCmp ? [resampleByTime(xData, cTimes, cmpFrames!.map((f) => f.s))] : []),
+    ...(hasCmp ? [resampleByPosition(pNorm, cNorm, cmpFrames!.map((f) => f.s))] : []),
   ];
 
   // Throttle/Brake chart
   const inputOpts: Partial<uPlot.Options> = {
     series: [
-      {},
+      xSer,
       { label: 'Throttle', stroke: '#39d353', width: 2 },
       { label: 'Brake', stroke: '#e8002d', width: 2 },
       ...(hasCmp
@@ -105,8 +136,9 @@ function LiveCharts({
           ]
         : []),
     ],
-    axes: [{ show: false }, { label: '%' }],
+    axes: sharedAxes,
     scales: { x: { time: false } },
+    cursor: sharedCursor,
   };
   const inputData: uPlot.AlignedData = [
     xData,
@@ -114,8 +146,8 @@ function LiveCharts({
     frames.map((f) => f.br),
     ...(hasCmp
       ? [
-          resampleByTime(xData, cTimes, cmpFrames!.map((f) => f.th)),
-          resampleByTime(xData, cTimes, cmpFrames!.map((f) => f.br)),
+          resampleByPosition(pNorm, cNorm, cmpFrames!.map((f) => f.th)),
+          resampleByPosition(pNorm, cNorm, cmpFrames!.map((f) => f.br)),
         ]
       : []),
   ];
@@ -123,24 +155,25 @@ function LiveCharts({
   // Gear chart
   const gearOpts: Partial<uPlot.Options> = {
     series: [
-      {},
+      xSer,
       { label: 'Gear', stroke: '#f5c518', width: 2 },
       ...(hasCmp ? [{ label: 'Compare', stroke: '#3b82f6', width: 1.5 } as uPlot.Series] : []),
     ],
-    axes: [{ show: false }, { label: 'Gear' }],
+    axes: sharedAxes,
     scales: { x: { time: false } },
+    cursor: sharedCursor,
   };
   const gearData: uPlot.AlignedData = [
     xData,
     frames.map((f) => f.g),
-    ...(hasCmp ? [resampleByTime(xData, cTimes, cmpFrames!.map((f) => f.g))] : []),
+    ...(hasCmp ? [resampleByPosition(pNorm, cNorm, cmpFrames!.map((f) => f.g))] : []),
   ];
 
   // Delta chart (time difference)
   const deltaOpts: Partial<uPlot.Options> | null = hasCmp
     ? {
         series: [
-          {},
+          xSer,
           {
             label: 'Delta',
             stroke: '#f0f0f0',
@@ -152,13 +185,14 @@ function LiveCharts({
             },
           },
         ],
-        axes: [{ show: false }, { label: 'Delta (s)' }],
+        axes: sharedAxes,
         scales: { x: { time: false } },
+        cursor: sharedCursor,
       }
     : null;
   const deltaData: uPlot.AlignedData | null = hasCmp
     ? (() => {
-        const cmpResampled = resampleByTime(xData, cTimes, cTimes);
+        const cmpResampled = resampleByPosition(pNorm, cNorm, cTimes);
         const pStart = xData[0];
         const cStart = cTimes[0];
         const delta = xData.map(
