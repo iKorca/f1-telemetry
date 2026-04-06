@@ -7,3 +7,19 @@
   height: 100%;
   overflow: hidden;
 }
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .mainPanel {
+    padding: 0.4rem 0.7rem;
+    gap: 0.4rem;
+    overflow-y: auto;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .mainPanel {
+    padding: 0.5rem 1rem;
+    gap: 0.5rem;
+  }
+}

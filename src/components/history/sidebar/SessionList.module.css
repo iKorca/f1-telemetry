@@ -26,3 +26,24 @@
   font-size: 0.75rem;
   padding: 1.5rem 1rem;
 }
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  .header {
+    padding: 0.5rem 0.7rem;
+    font-size: 0.52rem;
+  }
+
+  .empty {
+    font-size: 0.68rem;
+    padding: 1rem 0.7rem;
+  }
+}
+
+/* ── Tablet ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .header {
+    padding: 0.5rem 0.7rem;
+    font-size: 0.54rem;
+  }
+}

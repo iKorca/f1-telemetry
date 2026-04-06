@@ -55,3 +55,41 @@
   flex-wrap: wrap;
   justify-content: center;
 }
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .speedGearRow {
+    gap: 1.2rem;
+  }
+
+  .speedVal {
+    font-size: 4rem;
+  }
+
+  .unit {
+    font-size: 0.48rem;
+    margin-top: 3px;
+  }
+
+  .gearVal {
+    font-size: 3.5rem;
+  }
+
+  .gearBlock {
+    gap: 4px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .speedGearRow {
+    gap: 1.8rem;
+  }
+
+  .speedVal {
+    font-size: 6rem;
+  }
+
+  .gearVal {
+    font-size: 5rem;
+  }
+}

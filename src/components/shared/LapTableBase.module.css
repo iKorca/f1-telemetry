@@ -64,3 +64,44 @@
   margin-right: 4px;
   vertical-align: middle;
 }
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  .wrap {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table {
+    font-size: 0.62rem;
+    min-width: 480px;
+  }
+
+  .table th {
+    padding: 4px 6px;
+    font-size: 0.54rem;
+  }
+
+  .table td {
+    padding: 3px 6px;
+  }
+
+  .tyreDot {
+    width: 6px;
+    height: 6px;
+  }
+}
+
+/* ── Tablet ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .table {
+    font-size: 0.68rem;
+  }
+
+  .table th {
+    padding: 5px 8px;
+  }
+
+  .table td {
+    padding: 4px 8px;
+  }
+}

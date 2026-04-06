@@ -20,3 +20,21 @@
 .analysisSection {
   padding: 0 1.2rem 1rem;
 }
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  .analysisSection {
+    padding: 0 0.6rem 0.6rem;
+  }
+
+  .placeholder {
+    font-size: 0.72rem;
+  }
+}
+
+/* ── Tablet ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .analysisSection {
+    padding: 0 0.8rem 0.8rem;
+  }
+}

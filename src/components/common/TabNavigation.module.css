@@ -28,3 +28,37 @@
   color: var(--white);
   border-bottom-color: var(--red);
 }
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    height: 36px;
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tabBtn {
+    font-size: 0.52rem;
+    padding: 0 0.9rem;
+    flex-shrink: 0;
+    letter-spacing: 0.14em;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .tabs {
+    height: 38px;
+  }
+
+  .tabBtn {
+    font-size: 0.58rem;
+    padding: 0 1.1rem;
+    letter-spacing: 0.16em;
+  }
+}

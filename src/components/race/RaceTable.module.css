@@ -36,3 +36,39 @@
 .table tr:hover td {
   background: #141428;
 }
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  .wrapper {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table {
+    font-size: 0.58rem;
+    min-width: 600px;
+  }
+
+  .table th {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.48rem;
+  }
+
+  .table td {
+    padding: 0.25rem 0.5rem;
+  }
+}
+
+/* ── Tablet ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .table {
+    font-size: 0.64rem;
+  }
+
+  .table th {
+    padding: 0.4rem 0.6rem;
+  }
+
+  .table td {
+    padding: 0.35rem 0.6rem;
+  }
+}

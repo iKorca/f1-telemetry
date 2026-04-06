@@ -82,3 +82,36 @@
 .bestLap {
   color: var(--green);
 }
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  .row td {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.56rem;
+  }
+
+  .pos {
+    font-size: 0.7rem;
+    min-width: 1.6em;
+  }
+
+  .driver {
+    padding-left: 0.4rem;
+  }
+
+  .compound {
+    font-size: 0.46rem;
+    padding: 1px 4px;
+  }
+}
+
+/* ── Tablet ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .row td {
+    padding: 0.3rem 0.6rem;
+  }
+
+  .pos {
+    font-size: 0.78rem;
+  }
+}

@@ -38,3 +38,36 @@
   font-size: 0.9rem;
   letter-spacing: 0.15em;
 }
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  .wrap {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table {
+    font-size: 0.58rem;
+    min-width: 600px;
+  }
+
+  .table th {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.48rem;
+  }
+
+  .empty {
+    font-size: 0.75rem;
+    padding: 1rem;
+  }
+}
+
+/* ── Tablet ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .table {
+    font-size: 0.64rem;
+  }
+
+  .table th {
+    padding: 0.4rem 0.6rem;
+  }
+}

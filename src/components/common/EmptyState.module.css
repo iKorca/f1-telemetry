@@ -8,3 +8,19 @@
   font-size: 0.9rem;
   letter-spacing: 0.15em;
 }
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  .empty {
+    font-size: 0.72rem;
+    padding: 1rem;
+    letter-spacing: 0.1em;
+  }
+}
+
+/* ── Tablet ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .empty {
+    font-size: 0.82rem;
+  }
+}

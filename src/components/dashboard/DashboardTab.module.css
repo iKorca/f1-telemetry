@@ -13,3 +13,39 @@
   height: 100%;
   overflow: hidden;
 }
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .dashboardGrid {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .dashboardGrid > * {
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  .wrapper {
+    height: auto;
+    overflow: visible;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .dashboardGrid {
+    grid-template-columns: 1fr 1fr;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .dashboardGrid > *:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  .wrapper {
+    height: auto;
+    overflow: visible;
+  }
+}

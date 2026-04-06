@@ -20,8 +20,22 @@
   flex-direction: column;
 }
 
+/* ── Mobile: single-column, sidebar stacks above detail ── */
 @media (max-width: 768px) {
   .layout {
     grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .sidebar {
+    max-height: 35vh;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+/* ── Tablet: narrower sidebar ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .layout {
+    grid-template-columns: 200px 1fr;
   }
 }

@@ -86,3 +86,35 @@
   min-width: 24px;
   text-align: center;
 }
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  .layout {
+    padding: 1rem 0.6rem;
+    gap: 0.8rem;
+  }
+
+  .shortcutsCard {
+    padding: 0.8rem;
+  }
+
+  .shortcutList {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .shortcutItem {
+    font-size: 0.65rem;
+  }
+}
+
+/* ── Tablet ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .layout {
+    padding: 1.2rem 0.8rem;
+  }
+
+  .shortcutList {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+}

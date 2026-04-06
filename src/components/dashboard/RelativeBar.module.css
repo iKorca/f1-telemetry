@@ -53,3 +53,32 @@
 .behind {
   color: var(--red);
 }
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .bar {
+    padding: 0.4rem 0.5rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .car {
+    font-size: 0.56rem;
+    padding: 0.15rem 0.4rem;
+    gap: 0.35rem;
+  }
+
+  .pos {
+    width: 1.3em;
+  }
+
+  .gap {
+    width: 4em;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .car {
+    font-size: 0.62rem;
+  }
+}

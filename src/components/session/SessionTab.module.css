@@ -47,3 +47,33 @@
   color: var(--grey);
   max-width: 360px;
 }
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  .content {
+    padding: 0 0.6rem 0.6rem;
+  }
+
+  .placeholder {
+    padding: 1.5rem;
+  }
+
+  .placeholderIcon {
+    font-size: 2rem;
+  }
+
+  .placeholderTitle {
+    font-size: 0.9rem;
+  }
+
+  .placeholderText {
+    font-size: 0.75rem;
+  }
+}
+
+/* ── Tablet ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .content {
+    padding: 0 0.8rem 0.8rem;
+  }
+}

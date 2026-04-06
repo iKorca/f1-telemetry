@@ -23,3 +23,10 @@
 .stintCell {
   padding: 0.4rem 0.8rem;
 }
+
+/* ── Mobile: hide stint history column ── */
+@media (max-width: 768px) {
+  .stintCell {
+    display: none;
+  }
+}
