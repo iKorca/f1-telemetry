@@ -4,7 +4,7 @@
   "description": "F1 25 UDP Telemetry Dashboard with recording and remote access",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "vite build && node server.js",
     "dev:client": "vite",
     "dev:server": "node server.js",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
