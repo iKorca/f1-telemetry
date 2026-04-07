@@ -151,14 +151,17 @@ class Recorder {
 
   setParticipants(participantsData) {
     if (!this._isRecording || !this._session || !participantsData) return;
-    if (this._session.raceData.participants.length > 0) return; // already set
+    const all = participantsData.participants || [];
+    if (all.length === 0) return;
 
-    const all = participantsData.allDrivers || participantsData.drivers || [];
+    // Always update — participants may arrive after initial recording start
     this._session.raceData.participants = all.map(d => ({
       name:       d.name || '',
       teamId:     d.teamId ?? 0,
       raceNumber: d.raceNumber ?? 0,
     }));
+
+    console.log(`[Recorder] Participants set: ${all.filter(d => d.name).length} drivers`);
   }
 
   // ── Update session metadata if still Unknown ────────────────────────────────
@@ -250,8 +253,8 @@ class Recorder {
         }
       }
 
-      // Detect stint change for this car
-      if (status && this._carLastCompound[i] !== null && compound !== this._carLastCompound[i]) {
+      // Detect stint change for this car (skip UNKNOWN → real transitions)
+      if (status && this._carLastCompound[i] !== null && this._carLastCompound[i] !== 'UNKNOWN' && compound !== this._carLastCompound[i]) {
         if (!this._session.raceData.carStints[i]) {
           this._session.raceData.carStints[i] = [];
         }
@@ -492,7 +495,7 @@ class Recorder {
     // Finalize all car stints
     for (let i = 0; i < NUM_CARS; i++) {
       const compound = this._carLastCompound[i];
-      if (!compound) continue;
+      if (!compound || compound === 'UNKNOWN') continue;
       if (!rd.carStints[i]) rd.carStints[i] = [];
       const stints = rd.carStints[i];
       const lastStint = stints[stints.length - 1];
