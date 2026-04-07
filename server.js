@@ -556,6 +556,15 @@ udp.on('message', msg => {
         }
       }
       break;
+
+    case PACKET_IDS.FINAL_CLASSIFICATION:
+      // Race/session ended — auto-save recording immediately
+      if (recorder.getStatus().isRecording) {
+        console.log('[Session] Final classification received — auto-saving recording');
+        recorder.stop();
+        broadcast('recStatus', recorder.getStatus());
+      }
+      break;
   }
 });
 
