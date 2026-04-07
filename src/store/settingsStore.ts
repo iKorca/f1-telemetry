@@ -30,18 +30,18 @@ function applyToDOM(fontPreset: FontPreset, uiScale: number) {
   const fonts = FONT_PRESETS[fontPreset];
   root.style.setProperty('--font-d', fonts.display);
   root.style.setProperty('--font-u', fonts.ui);
-  root.style.fontSize = `${(uiScale / 100) * 16}px`;
+  root.style.fontSize = `${(uiScale / 100) * 21}px`;
 }
 
 export const useSettingsStore = create<SettingsState>()((set, get) => ({
   settings: null,
   speedUnit: 'kmh',
   fontPreset: 'modern',
-  uiScale: 130,
+  uiScale: 100,
 
   setSettings: (config) => {
     const fontPreset = (config.display?.fontPreset as FontPreset) || 'modern';
-    const uiScale = config.display?.uiScale || 130;
+    const uiScale = config.display?.uiScale || 100;
     set({
       settings: config,
       speedUnit: config.display?.speedUnit || 'kmh',

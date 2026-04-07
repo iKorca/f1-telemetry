@@ -11,7 +11,13 @@
   width: 100%;
   border-collapse: collapse;
   font-family: var(--font-d);
-  font-size: 0.68rem;
+  font-size: 0.78rem;
+}
+
+.table td {
+  color: var(--white);
+  padding: 0.5rem 0.8rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .table th {
