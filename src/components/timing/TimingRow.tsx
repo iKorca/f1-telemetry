@@ -23,6 +23,10 @@ interface TimingRowProps {
   isPlayer: boolean;
   isFastest: boolean;
   sessionBestLapMs: number;
+  isQualifying: boolean;
+  qualiBestMs: number;
+  sessionBestMs: number;
+  aheadBestMs: number;
 }
 
 function TimingRowInner({
@@ -32,6 +36,10 @@ function TimingRowInner({
   isPlayer,
   isFastest,
   sessionBestLapMs,
+  isQualifying,
+  qualiBestMs,
+  sessionBestMs,
+  aheadBestMs,
 }: TimingRowProps) {
   const isPit = lapData.pitStatus > 0;
   const isRetired = lapData.resultStatus >= 2;
@@ -43,21 +51,45 @@ function TimingRowInner({
   const compound = carStatus?.tyreCompoundName || '\u2014';
   const compCls = compound.toLowerCase();
 
-  const gapLeader =
-    lapData.carPosition === 1
-      ? 'LEAD'
-      : '+' + fmtDelta(lapData.deltaToLeaderInMS);
-  const gapAhead =
-    lapData.carPosition === 1
-      ? '\u2014'
-      : '+' + fmtDelta(lapData.deltaToCarInFrontInMS);
+  // Gap columns: qualifying uses best-lap based gaps, race uses live deltas
+  let gapLeader: string;
+  let gapAhead: string;
+
+  if (isQualifying) {
+    if (qualiBestMs > 0 && sessionBestMs > 0 && qualiBestMs === sessionBestMs) {
+      gapLeader = 'P1';
+    } else if (qualiBestMs > 0 && sessionBestMs > 0) {
+      gapLeader = '+' + fmtDelta(qualiBestMs - sessionBestMs);
+    } else {
+      gapLeader = '\u2014';
+    }
+
+    if (qualiBestMs > 0 && aheadBestMs > 0 && qualiBestMs === sessionBestMs) {
+      gapAhead = '\u2014';
+    } else if (qualiBestMs > 0 && aheadBestMs > 0) {
+      gapAhead = '+' + fmtDelta(qualiBestMs - aheadBestMs);
+    } else {
+      gapAhead = '\u2014';
+    }
+  } else {
+    gapLeader =
+      lapData.carPosition === 1
+        ? 'LEAD'
+        : '+' + fmtDelta(lapData.deltaToLeaderInMS);
+    gapAhead =
+      lapData.carPosition === 1
+        ? '\u2014'
+        : '+' + fmtDelta(lapData.deltaToCarInFrontInMS);
+  }
+
   const lastLap =
     lapData.lastLapTimeInMS > 0 ? fmtTime(lapData.lastLapTimeInMS) : '\u2014';
 
-  // Best lap: use session history best if available, otherwise show dash
-  // For now we show dash as in the original app.js (column 6 was always "\u2014")
-  const bestLapMs = 0; // placeholder: original code shows "\u2014"
+  // Best lap: in qualifying show tracked best, otherwise dash
+  const bestLapMs = isQualifying ? qualiBestMs : 0;
   const bestLap = bestLapMs > 0 ? fmtTime(bestLapMs) : '\u2014';
+  const isBestLapSessionBest =
+    bestLapMs > 0 && sessionBestMs > 0 && bestLapMs === sessionBestMs;
 
   // Determine if this car's last lap IS the session fastest
   const isLastLapFastest =
@@ -88,10 +120,12 @@ function TimingRowInner({
       <td className={styles.driver} style={{ borderLeftColor: teamColor }}>
         {participant.name}
       </td>
-      <td>{gapLeader}</td>
-      <td>{gapAhead}</td>
-      <td>{lastLap}</td>
-      <td>{bestLap}</td>
+      <td className={isQualifying ? styles.qualiGap : undefined}>{gapLeader}</td>
+      <td className={isQualifying ? styles.qualiGap : undefined}>{gapAhead}</td>
+      <td className={styles.lastLap}>{lastLap}</td>
+      <td className={isBestLapSessionBest ? styles.bestLap : undefined}>
+        {bestLap}
+      </td>
       <td>
         <span className={compoundClasses}>{compound}</span>
       </td>
@@ -116,6 +150,10 @@ function rowsEqual(prev: TimingRowProps, next: TimingRowProps): boolean {
   if (prev.isPlayer !== next.isPlayer) return false;
   if (prev.isFastest !== next.isFastest) return false;
   if (prev.sessionBestLapMs !== next.sessionBestLapMs) return false;
+  if (prev.isQualifying !== next.isQualifying) return false;
+  if (prev.qualiBestMs !== next.qualiBestMs) return false;
+  if (prev.sessionBestMs !== next.sessionBestMs) return false;
+  if (prev.aheadBestMs !== next.aheadBestMs) return false;
   if (
     (prev.carStatus?.tyreCompoundName || '') !==
     (next.carStatus?.tyreCompoundName || '')

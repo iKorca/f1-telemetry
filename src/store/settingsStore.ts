@@ -37,11 +37,11 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   settings: null,
   speedUnit: 'kmh',
   fontPreset: 'modern',
-  uiScale: 100,
+  uiScale: 130,
 
   setSettings: (config) => {
     const fontPreset = (config.display?.fontPreset as FontPreset) || 'modern';
-    const uiScale = config.display?.uiScale || 100;
+    const uiScale = config.display?.uiScale || 130;
     set({
       settings: config,
       speedUnit: config.display?.speedUnit || 'kmh',

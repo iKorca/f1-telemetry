@@ -15,6 +15,8 @@ export interface TelemetryFrame {
   ts: [number, number, number, number];
   fl: number;
   er: number;
+  em: number;  // ERS deploy mode: 0=none, 1=medium, 2=hotlap, 3=overtake
+  da: number;  // DRS allowed (0/1)
   gL: number;
   gN: number;
 }

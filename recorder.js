@@ -414,6 +414,8 @@ class Recorder {
       ts: car.tyresSurfaceTemperature || [0, 0, 0, 0],
       fl: fuel,
       er: ersPct,
+      em: statD.ersDeployMode || 0,     // ERS deploy mode: 0=none, 1=medium, 2=hotlap, 3=overtake
+      da: statD.drsAllowed || 0,        // DRS allowed in zone (0/1)
       gL: +(motionD.gForceLateral     || 0).toFixed(2),
       gN: +(motionD.gForceLongitudinal || 0).toFixed(2),
     });

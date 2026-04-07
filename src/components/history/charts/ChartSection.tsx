@@ -6,7 +6,7 @@ import CoachingHints from '@/components/shared/CoachingHints';
 import VarianceOverlay from '../analysis/VarianceOverlay';
 import { getFramesForLap } from '@/lib/lapUtils';
 import { findSectorBoundariesByTime, sectorOverlayPluginTime, normaliseTimes, resampleByPosition } from '@/lib/chartUtils';
-import type uPlot from 'uplot';
+import uPlot from 'uplot';
 import styles from './ChartSection.module.css';
 
 interface ChartSectionProps {
@@ -134,6 +134,63 @@ function ChartSection({
       const cmpG = resampleByPosition(pNorm, cNorm, cmpFrames.map((f) => f.g));
       series.push({ label: 'Gear (cmp)', stroke: '#3b82f6', width: 1.5, value: (_u: uPlot, v: number) => v != null ? String(Math.round(v)) : '--' });
       data.push(cmpG);
+    }
+    return { series, data };
+  }, [frames, cmpFrames, pTimes, cTimes]);
+
+  // ERS / DRS chart
+  const ersData = useMemo(() => {
+    if (frames.length < 2) return null;
+    const ersModeFmt = ['None', 'Medium', 'Hotlap', 'Overtake'];
+    const series: uPlot.Series[] = [
+      xSer,
+      {
+        label: 'ERS Battery %',
+        stroke: '#3b82f6',
+        width: 1.5,
+        fill: 'rgba(59,130,246,0.15)',
+        value: (_u: uPlot, v: number) => v != null ? Math.round(v) + '%' : '--',
+      },
+      {
+        label: 'ERS Mode',
+        stroke: '#f5c518',
+        width: 1.5,
+        paths: uPlot.paths!.stepped!({ align: 1 }) as uPlot.Series.PathBuilder,
+        value: (_u: uPlot, v: number) => v != null ? ersModeFmt[Math.round(v)] || '--' : '--',
+      },
+      {
+        label: 'DRS Active',
+        stroke: '#39d353',
+        width: 1.5,
+        paths: uPlot.paths!.stepped!({ align: 1 }) as uPlot.Series.PathBuilder,
+        value: (_u: uPlot, v: number) => v != null ? (v > 50 ? 'Active' : 'Off') : '--',
+      },
+      {
+        label: 'DRS Available',
+        stroke: '#facc15',
+        width: 1,
+        paths: uPlot.paths!.stepped!({ align: 1 }) as uPlot.Series.PathBuilder,
+        fill: 'rgba(250,204,21,0.1)',
+        value: (_u: uPlot, v: number) => v != null ? (v > 50 ? 'Available' : 'Off') : '--',
+      },
+    ];
+    // DRS active = d===1 => 100, DRS available = da===1 && d===0 => 100
+    const data: uPlot.AlignedData = [
+      pTimes,
+      frames.map((f) => f.er),
+      frames.map((f) => (f.em ?? 0) * 33),  // scale 0-3 to 0-99 for visibility
+      frames.map((f) => f.d === 1 ? 100 : 0),
+      frames.map((f) => (f.da ?? 0) === 1 && f.d !== 1 ? 100 : 0),
+    ];
+    if (cmpFrames && cmpFrames.length > 1) {
+      const cmpEr = resampleByPosition(pNorm, cNorm, cmpFrames.map((f) => f.er));
+      series.push({
+        label: 'ERS Battery (cmp)',
+        stroke: 'rgba(59,130,246,0.4)',
+        width: 1,
+        value: (_u: uPlot, v: number) => v != null ? Math.round(v) + '%' : '--',
+      });
+      data.push(cmpEr);
     }
     return { series, data };
   }, [frames, cmpFrames, pTimes, cTimes]);
@@ -285,6 +342,19 @@ function ChartSection({
                 }}
                 data={gearData.data}
                 height={140}
+                plugins={[sectorPlugin]}
+              />
+            </div>
+          )}
+          {ersData && (
+            <div className={styles.chartBox}>
+              <UPlotChart
+                options={{
+                  ...chartOpts,
+                  series: ersData.series,
+                }}
+                data={ersData.data}
+                height={160}
                 plugins={[sectorPlugin]}
               />
             </div>

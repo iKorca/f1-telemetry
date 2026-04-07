@@ -7,13 +7,21 @@
   white-space: nowrap;
 }
 
+/* Alternating row backgrounds */
+.row:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .row:hover td {
-  background: #141428;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 /* Player highlight */
 .player td {
-  background: rgba(232, 0, 45, 0.08);
+  background: rgba(232, 0, 45, 0.15);
+}
+.player:nth-child(even) td {
+  background: rgba(232, 0, 45, 0.18);
 }
 
 /* Fastest lap */
@@ -37,12 +45,25 @@
   font-size: 0.82rem;
   min-width: 2em;
   text-align: center;
+  color: var(--white);
 }
 
 /* Team color left border on driver name cell */
 .driver {
   border-left: 3px solid transparent;
   padding-left: 0.6rem;
+  font-weight: 600;
+  color: var(--white);
+}
+
+/* Last lap time */
+.lastLap {
+  color: var(--white);
+}
+
+/* Qualifying gap column */
+.qualiGap {
+  color: var(--grey-light);
 }
 
 .compound {
