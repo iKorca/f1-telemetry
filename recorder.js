@@ -165,11 +165,12 @@ class Recorder {
 
   updateSessionInfo(sessionInfo) {
     if (!this._isRecording || !this._session || !sessionInfo) return;
-    if (this._session.track === 'Unknown' && sessionInfo.trackName)
+    // Always update — session type can change (e.g. Time Trial → Race if user switches)
+    if (sessionInfo.trackName && sessionInfo.trackName !== 'Unknown')
       this._session.track = sessionInfo.trackName;
-    if (this._session.sessionType === 'Unknown' && sessionInfo.sessionTypeName)
+    if (sessionInfo.sessionTypeName && sessionInfo.sessionTypeName !== 'Unknown')
       this._session.sessionType = sessionInfo.sessionTypeName;
-    if (this._session.weather === 'Unknown' && sessionInfo.weatherName)
+    if (sessionInfo.weatherName && sessionInfo.weatherName !== 'Unknown')
       this._session.weather = sessionInfo.weatherName;
   }
 

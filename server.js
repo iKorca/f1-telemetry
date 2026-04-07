@@ -450,18 +450,22 @@ udp.on('message', msg => {
         recorder.updateSessionInfo(packet.data);
       }
 
-      // Auto-start recording on new session if enabled
-      if (cfg.recording?.autoRecord && newUID !== lastSessionUID && newUID !== '0') {
-        if (!recorder.getStatus().isRecording) {
+      // Auto-manage recording on session change
+      if (newUID !== lastSessionUID && newUID !== '0') {
+        // New session detected — if already recording, stop the old one first
+        if (recorder.getStatus().isRecording) {
+          console.log(`[Session] Session changed (${lastSessionUID} → ${newUID}), stopping old recording`);
+          recorder.stop();
+          broadcast('recStatus', recorder.getStatus());
+        }
+
+        // Auto-start new recording if enabled
+        if (cfg.recording?.autoRecord) {
           recorder.start(packet.data);
           if (state.participants) recorder.setParticipants(state.participants);
           broadcast('recStatus', recorder.getStatus());
         }
-        lastSessionUID = newUID;
-      }
 
-      // Reset race state on new session
-      if (newUID !== lastSessionUID) {
         raceState = makeRaceState();
         lastSessionUID = newUID;
       }
