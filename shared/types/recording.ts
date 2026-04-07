@@ -59,6 +59,7 @@ export interface CarLap {
   pitStatus: number;
   numPitStops: number;
   valid: boolean;
+  safetyCar?: boolean;
 }
 
 export interface CarStint {

@@ -86,12 +86,12 @@ function ChartSection({
     if (frames.length < 2) return null;
     const series: uPlot.Series[] = [
       xSer,
-      { label: 'Speed', stroke: '#f0f0f0', width: 1.5 },
+      { label: 'Speed', stroke: '#f0f0f0', width: 1.5, value: (_u: uPlot, v: number) => v != null ? Math.round(v) + ' km/h' : '--' },
     ];
     const data: uPlot.AlignedData = [pTimes, frames.map((f) => f.s)];
     if (cmpFrames && cmpFrames.length > 1) {
       const cmpY = resampleByPosition(pNorm, cNorm, cmpFrames.map((f) => f.s));
-      series.push({ label: 'Compare', stroke: '#3b82f6', width: 1.5 });
+      series.push({ label: 'Compare', stroke: '#3b82f6', width: 1.5, value: (_u: uPlot, v: number) => v != null ? Math.round(v) + ' km/h' : '--' });
       data.push(cmpY);
     }
     return { series, data };
@@ -102,8 +102,8 @@ function ChartSection({
     if (frames.length < 2) return null;
     const series: uPlot.Series[] = [
       xSer,
-      { label: 'Throttle', stroke: '#39d353', width: 1.5 },
-      { label: 'Brake', stroke: '#e8002d', width: 1.5 },
+      { label: 'Throttle', stroke: '#39d353', width: 1.5, value: (_u: uPlot, v: number) => v != null ? Math.round(v) + '%' : '--' },
+      { label: 'Brake', stroke: '#e8002d', width: 1.5, value: (_u: uPlot, v: number) => v != null ? Math.round(v) + '%' : '--' },
     ];
     const data: uPlot.AlignedData = [
       pTimes,
@@ -114,8 +114,8 @@ function ChartSection({
       const cmpTh = resampleByPosition(pNorm, cNorm, cmpFrames.map((f) => f.th));
       const cmpBr = resampleByPosition(pNorm, cNorm, cmpFrames.map((f) => f.br));
       series.push(
-        { label: 'Throttle (cmp)', stroke: 'rgba(57,211,83,0.4)', width: 1 },
-        { label: 'Brake (cmp)', stroke: 'rgba(232,0,45,0.4)', width: 1 },
+        { label: 'Throttle (cmp)', stroke: 'rgba(57,211,83,0.4)', width: 1, value: (_u: uPlot, v: number) => v != null ? Math.round(v) + '%' : '--' },
+        { label: 'Brake (cmp)', stroke: 'rgba(232,0,45,0.4)', width: 1, value: (_u: uPlot, v: number) => v != null ? Math.round(v) + '%' : '--' },
       );
       data.push(cmpTh, cmpBr);
     }
@@ -127,12 +127,12 @@ function ChartSection({
     if (frames.length < 2) return null;
     const series: uPlot.Series[] = [
       xSer,
-      { label: 'Gear', stroke: '#f5c518', width: 1.5 },
+      { label: 'Gear', stroke: '#f5c518', width: 1.5, value: (_u: uPlot, v: number) => v != null ? String(Math.round(v)) : '--' },
     ];
     const data: uPlot.AlignedData = [pTimes, frames.map((f) => f.g)];
     if (cmpFrames && cmpFrames.length > 1) {
       const cmpG = resampleByPosition(pNorm, cNorm, cmpFrames.map((f) => f.g));
-      series.push({ label: 'Gear (cmp)', stroke: '#3b82f6', width: 1.5 });
+      series.push({ label: 'Gear (cmp)', stroke: '#3b82f6', width: 1.5, value: (_u: uPlot, v: number) => v != null ? String(Math.round(v)) : '--' });
       data.push(cmpG);
     }
     return { series, data };
@@ -155,6 +155,7 @@ function ChartSection({
           label: 'Delta',
           stroke: '#f0f0f0',
           width: 1.5,
+          value: (_u: uPlot, v: number) => v != null ? (v >= 0 ? '+' : '') + v.toFixed(3) + 's' : '--',
           fill: (u: uPlot, _si: number) => {
             const grad = u.ctx.createLinearGradient(0, u.bbox.top, 0, u.bbox.top + u.bbox.height);
             grad.addColorStop(0, 'rgba(232,0,45,0.2)');
@@ -202,7 +203,9 @@ function ChartSection({
     cursor: {
       show: true,
       sync: { key: 'history-charts', setSeries: true },
+      focus: { prox: 30 },
     },
+    legend: { live: true },
   };
 
   return (

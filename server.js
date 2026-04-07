@@ -477,7 +477,7 @@ udp.on('message', msg => {
 
       // Feed all-car lap data to recorder
       if (recorder.getStatus().isRecording) {
-        recorder.updateAllCarsLapData(packet.data, state.carStatus);
+        recorder.updateAllCarsLapData(packet.data, state.carStatus, state.session);
       }
       break;
 

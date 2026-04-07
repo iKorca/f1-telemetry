@@ -105,6 +105,10 @@ class Recorder {
     if (!this._isRecording || !this._session) return null;
 
     this._session.endTime = Date.now();
+
+    // Finalize open stints for all cars
+    this._finalizeStints();
+
     this._isRecording = false;
 
     const id = this._session.id;
@@ -191,16 +195,20 @@ class Recorder {
 
   // ── Track all 22 cars' lap completions (for race data) ─────────────────────
 
-  updateAllCarsLapData(lapDataPacket, carStatusPacket) {
+  updateAllCarsLapData(lapDataPacket, carStatusPacket, sessionData) {
     if (!this._isRecording || !this._session) return;
     if (!lapDataPacket || !lapDataPacket.allCars) return;
 
     const allLaps   = lapDataPacket.allCars;
     const allStatus = carStatusPacket?.allCars || [];
+    const safetyCarActive = sessionData?.safetyCarStatus > 0;
 
     for (let i = 0; i < Math.min(allLaps.length, NUM_CARS); i++) {
       const car = allLaps[i];
       if (!car) continue;
+
+      // Skip retired/DNF drivers
+      if (car.resultStatus >= 4) continue;
 
       const lapNum = car.currentLapNum || 0;
       if (lapNum < 1 || lapNum > 200) continue;
@@ -232,6 +240,7 @@ class Recorder {
           pitStatus:   car.pitStatus || 0,
           numPitStops: car.numPitStops || 0,
           valid:       !car.currentLapInvalid,
+          safetyCar:   safetyCarActive || false,
         });
 
         // Track best lap
@@ -460,6 +469,37 @@ class Recorder {
 
     const tag = isOutLap ? ' [OUT LAP]' : isPitEntryLap ? ' [PIT LAP]' : '';
     console.log(`[Recorder] Lap ${completedLapNum} complete — ${this._fmtMs(lastLapMs)}${tag}`);
+  }
+
+  // Finalize open stints for all cars (called on stop)
+  _finalizeStints() {
+    if (!this._session) return;
+    const rd = this._session.raceData;
+
+    // Finalize player stint
+    if (this._lastCompound) {
+      const lastStint = this._session.stints[this._session.stints.length - 1];
+      const startLap = lastStint ? lastStint.endLap + 1 : 1;
+      this._session.stints.push({
+        startLap,
+        endLap: this._currentLap || startLap,
+        compound: this._lastCompound,
+        compoundName: this._lastCompound,
+      });
+    }
+
+    // Finalize all car stints
+    for (let i = 0; i < NUM_CARS; i++) {
+      const compound = this._carLastCompound[i];
+      if (!compound) continue;
+      if (!rd.carStints[i]) rd.carStints[i] = [];
+      const stints = rd.carStints[i];
+      const lastStint = stints[stints.length - 1];
+      const startLap = lastStint ? lastStint.endLap + 1 : 1;
+      const laps = rd.carLaps[i] || [];
+      const endLap = laps.length > 0 ? laps[laps.length - 1].lapNum : startLap;
+      stints.push({ startLap, endLap, compound });
+    }
   }
 
   _resetLapAccumulators() {

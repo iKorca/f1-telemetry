@@ -110,8 +110,8 @@ function LiveCharts({
   const speedOpts: Partial<uPlot.Options> = {
     series: [
       xSer,
-      { label: 'Speed', stroke: '#f0f0f0', width: 2 },
-      ...(hasCmp ? [{ label: 'Compare', stroke: '#3b82f6', width: 1.5 } as uPlot.Series] : []),
+      { label: 'Speed', stroke: '#f0f0f0', width: 2, value: (_u: uPlot, v: number) => v != null ? Math.round(v) + ' km/h' : '--' },
+      ...(hasCmp ? [{ label: 'Compare', stroke: '#3b82f6', width: 1.5, value: (_u: uPlot, v: number) => v != null ? Math.round(v) + ' km/h' : '--' } as uPlot.Series] : []),
     ],
     axes: sharedAxes,
     scales: { x: { time: false } },
@@ -127,12 +127,12 @@ function LiveCharts({
   const inputOpts: Partial<uPlot.Options> = {
     series: [
       xSer,
-      { label: 'Throttle', stroke: '#39d353', width: 2 },
-      { label: 'Brake', stroke: '#e8002d', width: 2 },
+      { label: 'Throttle', stroke: '#39d353', width: 2, value: (_u: uPlot, v: number) => v != null ? Math.round(v) + '%' : '--' },
+      { label: 'Brake', stroke: '#e8002d', width: 2, value: (_u: uPlot, v: number) => v != null ? Math.round(v) + '%' : '--' },
       ...(hasCmp
         ? [
-            { label: 'Throttle (cmp)', stroke: 'rgba(57,211,83,0.4)', width: 1 } as uPlot.Series,
-            { label: 'Brake (cmp)', stroke: 'rgba(232,0,45,0.4)', width: 1 } as uPlot.Series,
+            { label: 'Throttle (cmp)', stroke: 'rgba(57,211,83,0.4)', width: 1, value: (_u: uPlot, v: number) => v != null ? Math.round(v) + '%' : '--' } as uPlot.Series,
+            { label: 'Brake (cmp)', stroke: 'rgba(232,0,45,0.4)', width: 1, value: (_u: uPlot, v: number) => v != null ? Math.round(v) + '%' : '--' } as uPlot.Series,
           ]
         : []),
     ],
@@ -156,8 +156,8 @@ function LiveCharts({
   const gearOpts: Partial<uPlot.Options> = {
     series: [
       xSer,
-      { label: 'Gear', stroke: '#f5c518', width: 2 },
-      ...(hasCmp ? [{ label: 'Compare', stroke: '#3b82f6', width: 1.5 } as uPlot.Series] : []),
+      { label: 'Gear', stroke: '#f5c518', width: 2, value: (_u: uPlot, v: number) => v != null ? String(Math.round(v)) : '--' },
+      ...(hasCmp ? [{ label: 'Compare', stroke: '#3b82f6', width: 1.5, value: (_u: uPlot, v: number) => v != null ? String(Math.round(v)) : '--' } as uPlot.Series] : []),
     ],
     axes: sharedAxes,
     scales: { x: { time: false } },
@@ -178,6 +178,7 @@ function LiveCharts({
             label: 'Delta',
             stroke: '#f0f0f0',
             width: 2,
+            value: (_u: uPlot, v: number) => v != null ? (v >= 0 ? '+' : '') + v.toFixed(3) + 's' : '--',
             fill: (u: uPlot, idx: number) => {
               const v = u.data[idx] as number[];
               const last = v[v.length - 1];
