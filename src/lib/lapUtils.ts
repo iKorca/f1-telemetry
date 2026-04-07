@@ -51,12 +51,15 @@ export function getFramesForLap(
 
   if (raw.length < 2) return raw;
 
-  // Step 1: Find the LAST significant time reset (t drops by > 50%)
+  // Step 1: Find the LAST significant time reset (lap time wraps back near 0)
   // This marks where the actual lap timing starts (S/F line crossing)
+  // Detection: current t is < 30% of previous t AND previous t > 10s
+  // This works for all circuit lengths (Monaco ~72s to Spa ~105s)
   let resetIdx = 0;
   for (let i = 1; i < raw.length; i++) {
-    if (raw[i].t < raw[i - 1].t - 5000) {
-      // Time dropped by more than 5 seconds — this is a lap reset
+    const prev = raw[i - 1].t;
+    const curr = raw[i].t;
+    if (prev > 10000 && curr < prev * 0.3) {
       resetIdx = i;
     }
   }

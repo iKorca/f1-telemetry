@@ -79,8 +79,8 @@ function RaceAnalysis({ session }: RaceAnalysisProps) {
       data.push(values);
     }
 
-    // Gap metric: convert to cumulative gap vs leader
-    if (metric === 'gap' && data.length > 2) {
+    // Gap metric: convert to cumulative gap vs leader (needs 2+ drivers)
+    if (metric === 'gap' && selected.length >= 2) {
       const cumSums = data.slice(1).map((vals) => {
         let sum = 0;
         return vals.map((v) => {

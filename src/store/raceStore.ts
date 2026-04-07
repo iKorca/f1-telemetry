@@ -42,7 +42,7 @@ export const useRaceStore = create<RaceState>()((set) => ({
       return {
         lastWeatherLap: currentLap,
         weatherHistory: [
-          ...state.weatherHistory,
+          ...state.weatherHistory.slice(-99),
           {
             lap: currentLap - 1,
             lapTimeMs: lastLapMs,

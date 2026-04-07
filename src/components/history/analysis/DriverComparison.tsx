@@ -43,7 +43,7 @@ function DriverComparison({ session }: DriverComparisonProps) {
     const pB = participants[driverB] || {};
 
     const maxLap = Math.max(lapsA.length, lapsB.length);
-    if (maxLap < 1) return null;
+    if (maxLap < 1 || lapsA.length === 0 || lapsB.length === 0) return null;
 
     const xData = Array.from({ length: maxLap }, (_, i) => i + 1);
     let cumA = 0;

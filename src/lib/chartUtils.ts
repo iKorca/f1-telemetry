@@ -97,7 +97,10 @@ export function normaliseTimes(times: number[]): number[] {
   if (times.length < 2) return times.map(() => 0);
   const start = times[0];
   const range = times[times.length - 1] - start;
-  if (range <= 0) return times.map(() => 0);
+  if (range <= 0) {
+    // All times identical — space evenly so resampling still works
+    return times.map((_, i) => i / Math.max(1, times.length - 1));
+  }
   return times.map((t) => (t - start) / range);
 }
 
@@ -112,6 +115,7 @@ export function resampleByPosition(
   cmpValues: number[],
 ): number[] {
   if (cmpNorm.length < 2) return primaryNorm.map(() => 0);
+  if (cmpNorm.length !== cmpValues.length) return primaryNorm.map(() => 0);
 
   const result: number[] = [];
   let ci = 0;
