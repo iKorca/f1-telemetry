@@ -494,16 +494,10 @@ function parseParticipants(buf, header) {
     if (nameStart + 48 <= buf.length) {
       name = buf.subarray(nameStart, nameStart + 48).toString('utf8').replace(/\0/g, '').trim();
       // Strip non-printable chars, platform icons, and trailing garbage after semicolons
-      // Clean F1 25 online names:
-      // The game embeds platform identifiers and network bytes in the name field.
-      // Strategy: keep only printable ASCII, strip trailing platform junk after ';',
-      // and clean up common artifacts.
-      name = name
-        .replace(/[^\x20-\x7E]/g, '')   // Remove non-printable chars
-        .replace(/\s*;.*$/, '')           // Remove everything after semicolon (platform ID suffix)
-        .trim();
-      // If name has 3+ consecutive special chars at start, strip them (platform prefix)
-      name = name.replace(/^[^a-zA-Z0-9]{3,}/, '').trim();
+      // Minimal cleanup: remove null bytes and non-printable characters only.
+      // F1 25 online names contain platform prefixes — we don't strip those
+      // because the prefix/name boundary is unpredictable.
+      name = name.replace(/[^\x20-\x7E]/g, '').trim();
     }
 
     participants.push({
