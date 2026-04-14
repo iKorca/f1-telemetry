@@ -66,8 +66,11 @@ export function getFramesForLap(
     }
   }
 
-  // Step 2: Take frames from reset point onward
+  // Step 2: Take frames from reset point onward, skip leading zero-speed frames
   let trimmed = raw.slice(resetIdx);
+  while (trimmed.length > 2 && trimmed[0].s < 1) {
+    trimmed = trimmed.slice(1);
+  }
 
   // Step 3: If we have a valid lap time, cap frames within lapTimeMs + margin
   if (lap.lapTimeMs > 0 && trimmed.length > 2) {
