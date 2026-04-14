@@ -1,10 +1,12 @@
 import type { RecordedLap, SessionDetail, TelemetryFrame } from '@shared/types';
 
 /**
- * Get valid laps: lapTimeMs > 0, valid !== false, not deleted.
+ * Get valid racing laps: excludes invalid, deleted, out-laps, and pit-laps.
  */
 export function getValidLaps(laps: RecordedLap[]): RecordedLap[] {
-  return laps.filter((l) => l.lapTimeMs > 0 && l.valid !== false && !l.deleted);
+  return laps.filter(
+    (l) => l.lapTimeMs > 0 && l.valid !== false && !l.deleted && !l.isOutLap && !l.isPitLap,
+  );
 }
 
 /**

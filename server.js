@@ -134,7 +134,7 @@ function updateRaceState() {
           startLap: car.stints.length > 0
             ? car.stints[car.stints.length - 1].endLap + 1
             : 1,
-          endLap: car.currentLap > 0 ? car.currentLap - 1 : 0,
+          endLap: Math.max(car.currentLap - 1, 1),
         });
       }
       car.currentCompound = compound;

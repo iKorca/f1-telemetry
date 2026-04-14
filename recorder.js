@@ -262,7 +262,7 @@ class Recorder {
         const startLap = stints.length > 0 ? stints[stints.length - 1].endLap + 1 : 1;
         stints.push({
           startLap,
-          endLap:   lapNum - 1,
+          endLap:   Math.max(lapNum - 1, startLap),
           compound: this._carLastCompound[i],
         });
       }
