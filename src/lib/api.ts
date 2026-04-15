@@ -8,6 +8,9 @@ import type {
   RecordedLap,
   CarSetup,
   TelemetryFrame,
+  PracticeWorkbook,
+  PracticeRun,
+  PracticeTrackSummary,
 } from '@shared/types';
 
 const BASE = '/api';
@@ -159,6 +162,60 @@ export function startTunnel(subdomain?: string): Promise<TunnelStatus> {
 
 export function stopTunnel(): Promise<void> {
   return fetchVoid(`${BASE}/tunnel/stop`, {
+    method: 'POST',
+  });
+}
+
+// ─── Practice Lab ───────────────────────────────────────────────────────────
+
+export function getPracticeTracks(): Promise<PracticeTrackSummary[]> {
+  return fetchJSON<PracticeTrackSummary[]>(`${BASE}/practice`);
+}
+
+export function getPracticeWorkbook(track: string): Promise<PracticeWorkbook> {
+  return fetchJSON<PracticeWorkbook>(`${BASE}/practice/${encodeURIComponent(track)}`);
+}
+
+export function savePracticeWorkbook(wb: PracticeWorkbook): Promise<PracticeWorkbook> {
+  return fetchJSON<PracticeWorkbook>(`${BASE}/practice/${encodeURIComponent(wb.trackName)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(wb),
+  });
+}
+
+export function addPracticeRun(track: string, run: PracticeRun): Promise<PracticeWorkbook> {
+  return fetchJSON<PracticeWorkbook>(`${BASE}/practice/${encodeURIComponent(track)}/runs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(run),
+  });
+}
+
+export function updatePracticeRun(
+  track: string,
+  runId: string,
+  changes: Partial<PracticeRun>,
+): Promise<PracticeWorkbook> {
+  return fetchJSON<PracticeWorkbook>(`${BASE}/practice/${encodeURIComponent(track)}/runs/${runId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(changes),
+  });
+}
+
+export function deletePracticeRun(track: string, runId: string): Promise<PracticeWorkbook> {
+  return fetchJSON<PracticeWorkbook>(`${BASE}/practice/${encodeURIComponent(track)}/runs/${runId}`, {
+    method: 'DELETE',
+  });
+}
+
+export function extractPracticeRuns(sessionId: string): Promise<{
+  trackName: string;
+  runsAdded: number;
+  workbook: PracticeWorkbook;
+}> {
+  return fetchJSON(`${BASE}/practice/extract/${sessionId}`, {
     method: 'POST',
   });
 }

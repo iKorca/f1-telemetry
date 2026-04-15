@@ -31,7 +31,39 @@
 .actions {
   margin-left: auto;
   display: flex;
-  gap: 8px;
+  gap: 6px;
+}
+
+.btn {
+  font-family: var(--font-d);
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--grey-light);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  background: var(--border);
+  color: var(--white);
+  border-color: var(--grey);
+}
+
+.btnDanger {
+  composes: btn;
+  color: var(--red);
+  border-color: rgba(232, 0, 45, 0.3);
+}
+
+.btnDanger:hover {
+  background: rgba(232, 0, 45, 0.15);
+  color: var(--red);
+  border-color: var(--red);
 }
 
 /* ── Mobile ── */

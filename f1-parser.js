@@ -479,25 +479,52 @@ function parseParticipants(buf, header) {
 
   const numActiveCars = buf.readUInt8(o);
 
-  // Detect participant struct size (F1 24 = 58, F1 25 may be 60)
+  // Determine struct size from packet format version (reliable) with packet-size fallback
+  // F1 25 (2025): ParticipantData = 57 bytes, m_name = char[32]
+  // F1 24 (2024): ParticipantData = 58 bytes, m_name = char[48]
+  // Packet ALWAYS contains 22 participant entries
+  let participantSize, nameLen;
+
+  if (header.packetFormat >= 2025) {
+    participantSize = 57;
+    nameLen = 32;
+  } else {
+    participantSize = 58;
+    nameLen = 48;
+  }
+
+  // Cross-check with actual packet size; override if mismatch
   const dataBytes = buf.length - o - 1;
-  const guessedSize = numActiveCars > 0 ? Math.round(dataBytes / numActiveCars) : 58;
-  const participantSize = (guessedSize >= 56 && guessedSize <= 64) ? guessedSize : 58;
+  const expectedBytes = NUM_CARS * participantSize;
+  if (Math.abs(dataBytes - expectedBytes) > NUM_CARS) {
+    // Packet size doesn't match expected — auto-detect
+    const detected = Math.round(dataBytes / NUM_CARS);
+    if (detected >= 50 && detected <= 70) {
+      participantSize = detected;
+      nameLen = detected <= 57 ? 32 : 48;
+    }
+  }
 
   const participants = [];
-  for (let i = 0; i < numActiveCars && i < NUM_CARS; i++) {
+  for (let i = 0; i < NUM_CARS; i++) {
     const pO = o + 1 + i * participantSize;
-    if (pO + 8 > buf.length) break;
+    if (pO + 7 + nameLen > buf.length) break;
 
+    // Read name: truncate at FIRST null byte (bytes after null are uninitialized garbage)
+    // This is the critical fix — .replace(/\0/g, '') would concatenate garbage with the name
     const nameStart = pO + 7;
-    let name = '';
-    if (nameStart + 48 <= buf.length) {
-      name = buf.subarray(nameStart, nameStart + 48).toString('utf8').replace(/\0/g, '').trim();
-      // Strip non-printable chars, platform icons, and trailing garbage after semicolons
-      // Minimal cleanup: remove null bytes and non-printable characters only.
-      // F1 25 online names contain platform prefixes — we don't strip those
-      // because the prefix/name boundary is unpredictable.
-      name = name.replace(/[^\x20-\x7E]/g, '').trim();
+    const nameBytes = buf.subarray(nameStart, nameStart + nameLen);
+    const nullIdx = nameBytes.indexOf(0);
+    let name = (nullIdx >= 0 ? nameBytes.subarray(0, nullIdx) : nameBytes)
+      .toString('utf8')
+      .trim();
+
+    // Parse trailing fields after name
+    const afterName = nameStart + nameLen;
+    let platform = 0;
+    if (nameLen === 32 && afterName + 6 <= buf.length) {
+      // F1 25 layout after name: yourTelemetry(1) + showOnlineNames(1) + techLevel(2) + platform(1) + numColours(1)
+      platform = buf.readUInt8(afterName + 4); // 1=Steam, 3=PS, 4=Xbox, 6=Origin
     }
 
     participants.push({
@@ -505,16 +532,21 @@ function parseParticipants(buf, header) {
       driverId:     buf.readUInt8(pO + 1),
       networkId:    buf.readUInt8(pO + 2),
       teamId:       buf.readUInt8(pO + 3),
+      myTeam:       buf.readUInt8(pO + 4),
       raceNumber:   buf.readUInt8(pO + 5),
       nationality:  buf.readUInt8(pO + 6),
       name,
+      platform,
     });
   }
 
+  // Only return active cars (first numActiveCars entries)
+  const active = participants.slice(0, numActiveCars);
+
   return {
     numActiveCars,
-    participants,
-    playerName: participants[header.playerCarIndex]?.name || '',
+    participants: active,
+    playerName: active[header.playerCarIndex]?.name || '',
   };
 }
 

@@ -9,6 +9,7 @@ import TimingTab from './components/timing/TimingTab';
 import RaceTab from './components/race/RaceTab';
 import SessionTab from './components/session/SessionTab';
 import HistoryTab from './components/history/HistoryTab';
+import PracticeTab from './components/practice/PracticeTab';
 import SettingsTab from './components/settings/SettingsTab';
 import ShortcutsOverlay from './components/settings/ShortcutsOverlay';
 
@@ -47,6 +48,9 @@ function App() {
         </div>
         <div style={{ display: activeTab === 'history' ? 'flex' : 'none', height: '100%', flexDirection: 'column' as const }}>
           <HistoryTab />
+        </div>
+        <div style={{ display: activeTab === 'practice' ? 'flex' : 'none', height: '100%', flexDirection: 'column' }}>
+          <PracticeTab />
         </div>
         <div style={{ display: activeTab === 'settings' ? 'block' : 'none', height: '100%' }}>
           <SettingsTab />

@@ -18,9 +18,10 @@ export function pad3(n: number): string {
  */
 export function fmtTime(ms: number | null | undefined): string {
   if (!ms || ms === 0) return '\u2014';
-  const mins = Math.floor(ms / 60000);
-  const secs = Math.floor((ms % 60000) / 1000);
-  const milli = ms % 1000;
+  const total = Math.round(ms); // avoid float precision artifacts
+  const mins = Math.floor(total / 60000);
+  const secs = Math.floor((total % 60000) / 1000);
+  const milli = total % 1000;
   return `${mins}:${pad2(secs)}.${pad3(milli)}`;
 }
 

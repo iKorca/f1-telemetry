@@ -5,3 +5,4 @@ export * from './recording';
 export * from './settings';
 export * from './api';
 export * from './websocket';
+export * from './practice';

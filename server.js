@@ -359,6 +359,220 @@ app.post('/api/tunnel/stop', async (req, res) => {
   res.json({ active: false });
 });
 
+// ─── Practice Lab API ────────────────────────────────────────────────────────
+
+const PRACTICE_DIR = path.join(DATA_DIR, 'practice');
+if (!existsSync(PRACTICE_DIR)) mkdirSync(PRACTICE_DIR, { recursive: true });
+
+const { readFileSync, writeFileSync, readdirSync } = require('fs');
+
+function loadPracticeWorkbook(trackName) {
+  const file = path.join(PRACTICE_DIR, `${trackName.replace(/[^a-zA-Z0-9_-]/g, '_')}.json`);
+  if (existsSync(file)) {
+    try { return JSON.parse(readFileSync(file, 'utf8')); }
+    catch { return { trackName, runs: [], baselineRunId: null, lastUpdated: 0 }; }
+  }
+  return { trackName, runs: [], baselineRunId: null, lastUpdated: 0 };
+}
+
+function savePracticeWorkbook(wb) {
+  const file = path.join(PRACTICE_DIR, `${wb.trackName.replace(/[^a-zA-Z0-9_-]/g, '_')}.json`);
+  wb.lastUpdated = Date.now();
+  writeFileSync(file, JSON.stringify(wb, null, 2));
+}
+
+// List tracks with practice data
+app.get('/api/practice', (req, res) => {
+  try {
+    const files = readdirSync(PRACTICE_DIR).filter(f => f.endsWith('.json'));
+    const tracks = files.map(f => {
+      try {
+        const wb = JSON.parse(readFileSync(path.join(PRACTICE_DIR, f), 'utf8'));
+        return { trackName: wb.trackName, runCount: wb.runs?.length || 0, lastUpdated: wb.lastUpdated || 0 };
+      } catch { return null; }
+    }).filter(Boolean);
+    res.json(tracks);
+  } catch { res.json([]); }
+});
+
+// Get workbook for a track
+app.get('/api/practice/:track', (req, res) => {
+  const wb = loadPracticeWorkbook(req.params.track);
+  res.json(wb);
+});
+
+// Save workbook (full replace)
+app.put('/api/practice/:track', (req, res) => {
+  const wb = req.body;
+  wb.trackName = req.params.track;
+  savePracticeWorkbook(wb);
+  res.json(wb);
+});
+
+// Add a run to a track workbook
+app.post('/api/practice/:track/runs', (req, res) => {
+  const wb = loadPracticeWorkbook(req.params.track);
+  const run = req.body;
+  // Avoid duplicates
+  if (!wb.runs.find(r => r.id === run.id)) {
+    wb.runs.push(run);
+    savePracticeWorkbook(wb);
+  }
+  res.json(wb);
+});
+
+// Update a run (label, notes, pinned, condition)
+app.patch('/api/practice/:track/runs/:runId', (req, res) => {
+  const wb = loadPracticeWorkbook(req.params.track);
+  const idx = wb.runs.findIndex(r => r.id === req.params.runId);
+  if (idx >= 0) {
+    Object.assign(wb.runs[idx], req.body);
+    savePracticeWorkbook(wb);
+  }
+  res.json(wb);
+});
+
+// Delete a run
+app.delete('/api/practice/:track/runs/:runId', (req, res) => {
+  const wb = loadPracticeWorkbook(req.params.track);
+  wb.runs = wb.runs.filter(r => r.id !== req.params.runId);
+  savePracticeWorkbook(wb);
+  res.json(wb);
+});
+
+// Auto-extract practice runs from a recording session
+app.post('/api/practice/extract/:sessionId', (req, res) => {
+  try {
+    const session = recorder.getSessionById?.(req.params.sessionId)
+      || JSON.parse(readFileSync(path.join(DATA_DIR, 'recordings', `${req.params.sessionId}.json`), 'utf8'));
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+
+    const runs = extractPracticeRuns(session);
+    const trackName = session.track || 'Unknown';
+    const wb = loadPracticeWorkbook(trackName);
+
+    for (const run of runs) {
+      if (!wb.runs.find(r => r.id === run.id)) {
+        wb.runs.push(run);
+      }
+    }
+    savePracticeWorkbook(wb);
+    res.json({ trackName, runsAdded: runs.length, workbook: wb });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+function extractPracticeRuns(session) {
+  const laps = session.laps || [];
+  if (laps.length === 0) return [];
+
+  const runs = [];
+  let currentRun = null;
+
+  for (let i = 0; i < laps.length; i++) {
+    const lap = laps[i];
+    if (lap.deleted || lap.isOutLap || lap.isPitLap) {
+      // End current run if exists
+      if (currentRun && currentRun.lapIndices.length > 0) {
+        finalizeRun(currentRun, laps, session);
+        runs.push(currentRun);
+        currentRun = null;
+      }
+      continue;
+    }
+
+    // Detect stint boundary: compound change or setup change
+    const prevLap = i > 0 ? laps[i - 1] : null;
+    const compoundChanged = prevLap && lap.compound !== prevLap.compound;
+    const setupChanged = prevLap && lap.setupLapRef !== prevLap.setupLapRef;
+    const isNewStint = !currentRun || compoundChanged || setupChanged;
+
+    if (isNewStint) {
+      if (currentRun && currentRun.lapIndices.length > 0) {
+        finalizeRun(currentRun, laps, session);
+        runs.push(currentRun);
+      }
+
+      const isWet = /rain|storm|wet|inter/i.test(session.weather || '') || /INTER|WET/i.test(lap.compound || '');
+
+      currentRun = {
+        id: `${session.id}_stint_${i}`,
+        sessionId: session.id,
+        timestamp: session.startTime + (lap.lapNum * 90000), // approx
+        label: `${session.sessionType || 'Practice'} — ${lap.compound || 'Unknown'}`,
+        condition: isWet ? 'wet' : 'dry',
+        compound: lap.compound || 'Unknown',
+        setup: null,
+        weather: session.weather || '',
+        notes: '',
+        pinned: false,
+        lapCount: 0,
+        validLapCount: 0,
+        bestLapMs: 0,
+        avgLapMs: 0,
+        bestS1Ms: 0,
+        bestS2Ms: 0,
+        bestS3Ms: 0,
+        maxSpeed: 0,
+        avgThrottle: 0,
+        avgBrake: 0,
+        consistency: 0,
+        lapIndices: [],
+      };
+
+      // Resolve setup for this stint
+      if (session.lapSetups) {
+        const setupLaps = Object.keys(session.lapSetups).map(Number).sort((a, b) => a - b);
+        const setupLap = setupLaps.filter(l => l <= lap.lapNum).pop();
+        if (setupLap != null) currentRun.setup = session.lapSetups[setupLap];
+      }
+      if (!currentRun.setup && session.setup) currentRun.setup = session.setup;
+    }
+
+    currentRun.lapIndices.push(i);
+  }
+
+  if (currentRun && currentRun.lapIndices.length > 0) {
+    finalizeRun(currentRun, laps, session);
+    runs.push(currentRun);
+  }
+
+  return runs;
+}
+
+function finalizeRun(run, laps, session) {
+  const validLaps = run.lapIndices
+    .map(i => laps[i])
+    .filter(l => l.valid !== false && l.lapTimeMs > 0);
+
+  run.lapCount = run.lapIndices.length;
+  run.validLapCount = validLaps.length;
+
+  if (validLaps.length === 0) return;
+
+  const times = validLaps.map(l => l.lapTimeMs);
+  run.bestLapMs = Math.min(...times);
+  run.avgLapMs = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+
+  run.bestS1Ms = Math.min(...validLaps.filter(l => l.s1Ms > 0).map(l => l.s1Ms)) || 0;
+  run.bestS2Ms = Math.min(...validLaps.filter(l => l.s2Ms > 0).map(l => l.s2Ms)) || 0;
+  run.bestS3Ms = Math.min(...validLaps.filter(l => l.s3Ms > 0).map(l => l.s3Ms)) || 0;
+  run.maxSpeed = Math.max(...validLaps.map(l => l.maxSpeed || 0));
+  run.avgThrottle = Math.round(validLaps.reduce((s, l) => s + (l.avgThrottle || 0), 0) / validLaps.length);
+  run.avgBrake = Math.round(validLaps.reduce((s, l) => s + (l.avgBrake || 0), 0) / validLaps.length);
+
+  // Consistency score (same formula as frontend)
+  if (times.length >= 2) {
+    const mean = times.reduce((a, b) => a + b, 0) / times.length;
+    const variance = times.reduce((s, t) => s + (t - mean) ** 2, 0) / times.length;
+    const cv = (Math.sqrt(variance) / mean) * 100;
+    run.consistency = Math.round(Math.max(0, Math.min(100, 100 - cv * 10)));
+  } else {
+    run.consistency = 100;
+  }
+}
+
 // ─── Local IP helper ──────────────────────────────────────────────────────────
 
 function getLocalIPs() {

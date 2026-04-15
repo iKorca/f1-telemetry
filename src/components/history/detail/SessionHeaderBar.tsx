@@ -121,16 +121,16 @@ function SessionHeaderBar({ session }: SessionHeaderBarProps) {
         {(session.laps || []).filter((l) => !l.deleted).length} laps
       </span>
       <div className={styles.actions}>
-        <button className="btn btn-small" onClick={handleExportLaps}>
-          Export Laps CSV
+        <button className={styles.btn} onClick={handleExportLaps}>
+          Export Laps
         </button>
-        <button className="btn btn-small" onClick={handleExportTelemetry}>
+        <button className={styles.btn} onClick={handleExportTelemetry}>
           Export Telemetry
         </button>
-        <button className="btn btn-small" onClick={handleShareCard}>
+        <button className={styles.btn} onClick={handleShareCard}>
           Share Card
         </button>
-        <button className="btn btn-small btn-danger" onClick={handleDelete}>
+        <button className={styles.btnDanger} onClick={handleDelete}>
           Delete
         </button>
       </div>

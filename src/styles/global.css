@@ -52,6 +52,81 @@ html, body {
   overflow-x: hidden;
 }
 
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn {
+  font-family: var(--font-d);
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--grey-light);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  background: var(--border);
+  color: var(--white);
+  border-color: var(--grey);
+}
+
+.btn-small {
+  composes: btn;
+}
+
+.btn-danger {
+  color: var(--red);
+  border-color: rgba(232, 0, 45, 0.3);
+}
+
+.btn-danger:hover {
+  background: rgba(232, 0, 45, 0.15);
+  border-color: var(--red);
+}
+
+.btn-secondary {
+  font-family: var(--font-d);
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--grey-light);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.btn-secondary:hover {
+  background: var(--border);
+  color: var(--white);
+  border-color: var(--grey);
+}
+
+/* ── Selects ─────────────────────────────────────────────────────────────── */
+.settings-select {
+  font-family: var(--font-d);
+  font-size: 0.65rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--grey-light);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.settings-select:hover,
+.settings-select:focus {
+  border-color: var(--grey);
+  color: var(--white);
+}
+
 /* ── Keyframe Animations ──────────────────────────────────────────────────── */
 @keyframes pulse {
   0%, 100% { opacity: 1; }

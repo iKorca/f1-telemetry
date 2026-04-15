@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { RecordingStatus, TunnelStatus } from '@shared/types';
 
-type TabId = 'dashboard' | 'timing' | 'race' | 'session' | 'history' | 'settings';
+type TabId = 'dashboard' | 'timing' | 'race' | 'session' | 'practice' | 'history' | 'settings';
 type ConnectionStatus = 'live' | 'waiting' | 'off';
 
 interface UIState {

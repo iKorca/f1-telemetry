@@ -104,6 +104,7 @@ function LiveCharts({
   const sharedCursor: uPlot.Cursor = {
     show: true,
     sync: { key: 'session-charts', setSeries: true },
+    focus: { prox: 30 },
   };
 
   // Speed chart
@@ -116,6 +117,7 @@ function LiveCharts({
     axes: sharedAxes,
     scales: { x: { time: false } },
     cursor: sharedCursor,
+    legend: { live: true },
   };
   const speedData: uPlot.AlignedData = [
     xData,
@@ -139,6 +141,7 @@ function LiveCharts({
     axes: sharedAxes,
     scales: { x: { time: false } },
     cursor: sharedCursor,
+    legend: { live: true },
   };
   const inputData: uPlot.AlignedData = [
     xData,
@@ -162,6 +165,7 @@ function LiveCharts({
     axes: sharedAxes,
     scales: { x: { time: false } },
     cursor: sharedCursor,
+    legend: { live: true },
   };
   const gearData: uPlot.AlignedData = [
     xData,
@@ -213,6 +217,7 @@ function LiveCharts({
     axes: sharedAxes,
     scales: { x: { time: false } },
     cursor: sharedCursor,
+    legend: { live: true },
   };
   const ersData: uPlot.AlignedData = [
     xData,

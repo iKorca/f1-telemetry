@@ -93,5 +93,31 @@ export function getFramesForLap(
     }
   }
 
+  // Step 5: Remove physically impossible speed spikes
+  // An F1 car can't change speed more than ~150 km/h per second (acceleration)
+  // or ~250 km/h per second (braking). Detect isolated spikes where a single
+  // frame's speed is far from both neighbours and replace with interpolation.
+  if (cleaned.length >= 3) {
+    for (let i = 1; i < cleaned.length - 1; i++) {
+      const prev = cleaned[i - 1];
+      const curr = cleaned[i];
+      const next = cleaned[i + 1];
+      const dtPrev = (curr.t - prev.t) / 1000; // seconds
+      const dtNext = (next.t - curr.t) / 1000;
+      if (dtPrev <= 0 || dtNext <= 0) continue;
+
+      const ratePrev = Math.abs(curr.s - prev.s) / dtPrev; // km/h per second
+      const rateNext = Math.abs(next.s - curr.s) / dtNext;
+      const neighbourRate = Math.abs(next.s - prev.s) / ((dtPrev + dtNext));
+
+      // If both edges show impossible acceleration (>250 km/h/s) but neighbours
+      // are close to each other, this frame is a spike — interpolate it
+      if (ratePrev > 250 && rateNext > 250 && neighbourRate < 200) {
+        const frac = dtPrev / (dtPrev + dtNext);
+        cleaned[i] = { ...curr, s: prev.s + (next.s - prev.s) * frac };
+      }
+    }
+  }
+
   return cleaned;
 }

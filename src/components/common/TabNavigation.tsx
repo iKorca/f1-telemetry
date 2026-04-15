@@ -7,6 +7,7 @@ const TABS: { id: TabId; label: string; raceOnly?: boolean }[] = [
   { id: 'timing', label: 'TIMING' },
   { id: 'race', label: 'RACE', raceOnly: true },
   { id: 'session', label: 'SESSION' },
+  { id: 'practice', label: 'PRACTICE' },
   { id: 'history', label: 'HISTORY' },
   { id: 'settings', label: 'SETTINGS' },
 ];
