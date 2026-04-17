@@ -1,6 +1,9 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { usePracticeStore } from '@/store/practiceStore';
+import { useSessionInfoStore } from '@/store/sessionInfoStore';
+import { useUIStore } from '@/store/uiStore';
 import * as api from '@/lib/api';
+import { getF125TrackNames } from '@/lib/trackDatabase';
 import RunsTable from './RunsTable';
 import StintComparison from './StintComparison';
 import SetupDelta from './SetupDelta';
@@ -17,6 +20,16 @@ export default function PracticeTab() {
   const setSelectedTrack = usePracticeStore((s) => s.setSelectedTrack);
   const setWorkbook = usePracticeStore((s) => s.setWorkbook);
   const setConditionFilter = usePracticeStore((s) => s.setConditionFilter);
+
+  const liveTrack = useSessionInfoStore((s) => s.trackName);
+  const connectionStatus = useUIStore((s) => s.connectionStatus);
+
+  // Auto-select live track if connected and nothing selected
+  useEffect(() => {
+    if (connectionStatus === 'live' && liveTrack && !selectedTrack) {
+      setSelectedTrack(liveTrack);
+    }
+  }, [liveTrack, connectionStatus, selectedTrack, setSelectedTrack]);
 
   // Load track list on mount
   useEffect(() => {
@@ -62,6 +75,13 @@ export default function PracticeTab() {
     }
   }, [selectedTrack, setWorkbook, setTracks]);
 
+  const trackOptions = useMemo(() => {
+    return getF125TrackNames().map((name) => {
+      const summary = tracks.find((t) => t.trackName === name);
+      return { name, runCount: summary?.runCount || 0 };
+    });
+  }, [tracks]);
+
   // Filter runs by condition
   const filteredRuns =
     workbook?.runs.filter((r) => {
@@ -82,9 +102,9 @@ export default function PracticeTab() {
           onChange={handleTrackChange}
         >
           <option value="">Select track...</option>
-          {tracks.map((t) => (
-            <option key={t.trackName} value={t.trackName}>
-              {t.trackName} ({t.runCount} runs)
+          {trackOptions.map((t) => (
+            <option key={t.name} value={t.name}>
+              {t.name} {t.runCount > 0 ? `(${t.runCount} runs)` : ''}
             </option>
           ))}
         </select>

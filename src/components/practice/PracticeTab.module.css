@@ -158,12 +158,33 @@
 }
 
 .labelInput:hover {
-  border-bottom-color: var(--border);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .labelInput:focus {
   outline: none;
-  border-bottom-color: var(--blue);
+  background: rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 1px var(--blue);
+}
+
+.labelCell {
+  position: relative;
+}
+
+.labelCell:after {
+  content: '\270E';
+  position: absolute;
+  right: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.5rem;
+  color: var(--grey);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.labelCell:hover:after {
+  opacity: 1;
 }
 
 /* ── Comparison Sections ── */
@@ -255,6 +276,99 @@
   font-size: 0.75rem;
   letter-spacing: 0.1em;
   text-align: center;
+}
+
+/* ── Expandable Lap Rows ── */
+
+.expandBtn {
+  font-family: var(--font-d);
+  font-size: 0.75rem; /* Larger font for clearer icons */
+  padding: 0.2rem 0.6rem; /* More generous padding */
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--grey-light);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+}
+
+.expandBtn:hover {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: var(--white);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+}
+
+.lapDetailRow td {
+  padding: 0.25rem 0.6rem !important;
+  background: rgba(255,255,255,0.015) !important;
+  font-size: 0.6rem;
+  color: var(--grey-light);
+  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+}
+
+.lapDetailRow:last-child td {
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.lapNum {
+  color: var(--grey);
+  font-size: 0.52rem;
+  font-weight: 700;
+}
+
+.lapBest {
+  color: var(--green) !important;
+  font-weight: 700;
+}
+
+.lapInvalid {
+  opacity: 0.45;
+}
+
+/* ── Setup Expansion ── */
+
+.setupRow td {
+  padding: 0 !important;
+  border-bottom: 2px solid var(--border) !important;
+}
+
+.setupDetail {
+  padding: 1rem 2rem;
+  background: rgba(0, 0, 0, 0.15);
+  border-left: 2px solid var(--blue);
+}
+
+.setupBtn {
+  font-family: var(--font-d);
+  font-size: 0.5rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--grey-light);
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.05em;
+}
+
+.setupBtn:hover {
+  background: var(--blue);
+  color: var(--white);
+  border-color: var(--blue);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+}
+
+.setupBtnActive {
+  composes: setupBtn;
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--blue);
+  border-color: var(--blue);
 }
 
 /* ── Mobile ── */

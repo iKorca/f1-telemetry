@@ -51,9 +51,9 @@ class Recorder {
     this._lapMaxSpeed    = 0;
 
     // Pit tracking for out-lap / pit-lap detection
-    this._wasInPit         = true; // First lap is always an out-lap
+    this._wasInPit         = false; // Determined from actual telemetry on first frame
     this._pitEnteredThisLap = false;
-    this._prevPitStatus    = 0;
+    this._prevPitStatus    = -1; // -1 = unknown (first frame not yet seen)
 
     // Per-lap setup tracking
     this._lastSetupHash = null;
@@ -117,6 +117,14 @@ class Recorder {
     console.log(`[Recorder] Stopped session ${id} (${this._session.laps.length} laps, ${this._frameCount} frames)`);
     this._session = null;
     return id;
+  }
+
+  // ── Save checkpoint (persist without stopping) ─────────────────────────────
+
+  saveCheckpoint() {
+    if (!this._isRecording || !this._session) return;
+    this._saveSession(this._session);
+    console.log(`[Recorder] Checkpoint saved — ${this._session.id} (${this._session.laps.length} laps, ${this._frameCount} frames)`);
   }
 
   // ── Get current in-progress session (for live view) ────────────────────────
@@ -343,15 +351,34 @@ class Recorder {
 
         // Track pit status for out-lap / pit-lap detection
         const pitStatus = lapData.pitStatus || 0;
-        if (pitStatus > 0 && this._prevPitStatus === 0) {
-          // Just entered pit lane
-          this._pitEnteredThisLap = true;
+
+        // First frame: detect whether car started in pit or on track
+        if (this._prevPitStatus === -1) {
+          this._prevPitStatus = pitStatus;
+          if (pitStatus > 0) {
+            // Car started in pit lane (normal garage exit)
+            this._wasInPit = true;
+          }
+          // If pitStatus === 0, car started on track (flying start) — _wasInPit stays false
+        } else {
+          if (pitStatus > 0 && this._prevPitStatus === 0) {
+            // Just entered pit lane
+            this._pitEnteredThisLap = true;
+          }
+          if (pitStatus === 0 && this._prevPitStatus > 0) {
+            // Just exited pit lane — detected by transition to 0.
+            // Check speed to distinguish between real pit exit and flying start teleport.
+            const speed = telemetry?.playerData?.speed || 0;
+            if (speed < 100) {
+              // Real pit exit: car is moving slowly off the limiter
+              this._wasInPit = true;
+            } else {
+              // Flying start: car was teleported to track at high speed
+              this._wasInPit = false;
+            }
+          }
+          this._prevPitStatus = pitStatus;
         }
-        if (pitStatus === 0 && this._prevPitStatus > 0) {
-          // Just exited pit — next lap is an out-lap
-          this._wasInPit = true;
-        }
-        this._prevPitStatus = pitStatus;
 
         // Check for stint change
         if (carStatus) {
@@ -437,9 +464,9 @@ class Recorder {
       ? +(this._lapBrakeSum / this._lapFrameCount).toFixed(2) : 0;
 
     // Detect out-laps and pit laps:
-    // - Out-lap: first lap of session, or lap after a pit stop (low speed start, incomplete sectors)
+    // - Out-lap: lap after a pit stop (determined from actual pit status telemetry)
     // - Pit entry lap: car entered pit during this lap (pitStatus was > 0)
-    const isOutLap = this._wasInPit || completedLapNum === 1;
+    const isOutLap = this._wasInPit;
     const isPitEntryLap = this._pitEnteredThisLap;
 
     // Mark as invalid if it's an out-lap or pit-entry lap with missing sectors
@@ -475,6 +502,9 @@ class Recorder {
 
     const tag = isOutLap ? ' [OUT LAP]' : isPitEntryLap ? ' [PIT LAP]' : '';
     console.log(`[Recorder] Lap ${completedLapNum} complete — ${this._fmtMs(lastLapMs)}${tag}`);
+
+    // Auto-save checkpoint on every lap completion to ensure disk is always in-sync with memory
+    this._saveSession(this._session);
   }
 
   // Finalize open stints for all cars (called on stop)

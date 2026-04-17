@@ -41,6 +41,9 @@ export const TRACK_DATABASE: TrackInfo[] = [
   { id: 31, name: 'Las Vegas',        country: 'USA',            raceLaps: 50, circuitLength: 6.201 },
   { id: 32, name: 'Lusail',           country: 'Qatar',          raceLaps: 57, circuitLength: 5.419 },
   { id: 33, name: 'Madrid',           country: 'Spain',          raceLaps: 66, circuitLength: 4.651 },
+  { id: 34, name: 'Silverstone Reverse', country: 'United Kingdom', raceLaps: 52, circuitLength: 5.891 },
+  { id: 35, name: 'Austria Reverse',     country: 'Austria',        raceLaps: 71, circuitLength: 4.318 },
+  { id: 36, name: 'Zandvoort Reverse',   country: 'Netherlands',    raceLaps: 72, circuitLength: 4.259 },
 ];
 
 const byId = new Map(TRACK_DATABASE.map((t) => [t.id, t]));
@@ -56,4 +59,38 @@ export function getTrackByName(name: string): TrackInfo | undefined {
 
 export function getAllTrackNames(): string[] {
   return TRACK_DATABASE.map((t) => t.name);
+}
+
+const F1_25_CALENDAR = [
+  'Melbourne',
+  'Shanghai',
+  'Suzuka',
+  'Bahrain',
+  'Jeddah',
+  'Miami',
+  'Imola',
+  'Monaco',
+  'Catalunya',
+  'Montreal',
+  'Austria',
+  'Silverstone',
+  'Spa',
+  'Hungaroring',
+  'Zandvoort',
+  'Monza',
+  'Baku',
+  'Singapore',
+  'Austin',
+  'Mexico City',
+  'Interlagos',
+  'Las Vegas',
+  'Lusail',
+  'Abu Dhabi',
+  'Silverstone Reverse',
+  'Austria Reverse',
+  'Zandvoort Reverse',
+];
+
+export function getF125TrackNames(): string[] {
+  return F1_25_CALENDAR;
 }

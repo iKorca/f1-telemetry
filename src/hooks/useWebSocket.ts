@@ -5,6 +5,7 @@ import { useTimingStore } from '../store/timingStore';
 import { useRaceStore } from '../store/raceStore';
 import { useUIStore } from '../store/uiStore';
 import { useHistoryStore } from '../store/historyStore';
+import { usePracticeStore } from '../store/practiceStore';
 import * as api from '../lib/api';
 import type { WSMessage, CarSetupsData } from '@shared/types';
 
@@ -24,7 +25,8 @@ export function useWebSocket(): void {
   useEffect(() => {
     function connect() {
       const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
-      const ws = new WebSocket(`${wsProto}://${location.host}`);
+      const wsUrl = import.meta.env.DEV ? `${wsProto}://${location.host}/ws` : `${wsProto}://${location.host}`;
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -105,13 +107,32 @@ export function useWebSocket(): void {
             if (wasRecording && !data.isRecording) {
               api.getSessions().then((list) => {
                 useHistoryStore.getState().setSessions(list);
-              }).catch(() => {});
+              }).catch(() => { });
             }
             break;
           }
           case 'tunnel':
             useUIStore.getState().handleTunnel(data);
             break;
+          case 'practiceUpdate': {
+            // Live practice workbook update — refresh if we're viewing this track
+            const practiceState = usePracticeStore.getState();
+            if (practiceState.selectedTrack === data.trackName) {
+              practiceState.setWorkbook(data);
+            }
+            // Also refresh the track list for run counts
+            const trackSummary = { trackName: data.trackName, runCount: data.runs?.length || 0, lastUpdated: data.lastUpdated || Date.now() };
+            const currentTracks = practiceState.tracks;
+            const tIdx = currentTracks.findIndex(t => t.trackName === data.trackName);
+            if (tIdx >= 0) {
+              const updated = [...currentTracks];
+              updated[tIdx] = trackSummary;
+              practiceState.setTracks(updated);
+            } else {
+              practiceState.setTracks([...currentTracks, trackSummary]);
+            }
+            break;
+          }
         }
       };
 

@@ -10,45 +10,112 @@ interface UPlotChartProps {
   plugins?: uPlot.Plugin[];
 }
 
+// ─── Scale sync registry ──────────────────────────────────────────────────────
+// Charts sharing the same cursor.sync.key will also share x-scale (zoom + pan).
+
+interface SyncGroup {
+  charts: Set<uPlot>;
+  broadcasting: boolean;
+}
+
+const scaleSyncGroups = new Map<string, SyncGroup>();
+
+function getSyncGroup(key: string): SyncGroup {
+  let group = scaleSyncGroups.get(key);
+  if (!group) {
+    group = { charts: new Set(), broadcasting: false };
+    scaleSyncGroups.set(key, group);
+  }
+  return group;
+}
+
+function broadcastScale(key: string, source: uPlot, min: number, max: number) {
+  const group = getSyncGroup(key);
+  if (group.broadcasting) return; // prevent reentry
+  group.broadcasting = true;
+  for (const chart of group.charts) {
+    if (chart !== source) {
+      chart.setScale('x', { min, max });
+    }
+  }
+  group.broadcasting = false;
+}
+
 /**
- * Wheel-zoom plugin: scroll to zoom X axis, double-click to reset.
- * Shift+scroll zooms Y axis.
+ * Trackpad-aware zoom + pan plugin for macOS:
+ * - Pinch-to-zoom (ctrlKey on wheel events) → zoom X axis at cursor position
+ * - Two-finger horizontal scroll (regular wheel) → pan X axis
+ * - Double-click → reset to full data range
+ * - Syncs x-scale across all charts with the same sync key
  */
-function wheelZoomPlugin(): uPlot.Plugin {
+function wheelZoomPlugin(syncKey?: string): uPlot.Plugin {
   return {
     hooks: {
       init: [
         (u: uPlot) => {
           const plot = u.over;
 
+          // Register in sync group
+          if (syncKey) {
+            getSyncGroup(syncKey).charts.add(u);
+          }
+
           plot.addEventListener('wheel', (e: WheelEvent) => {
             e.preventDefault();
-            const factor = e.deltaY > 0 ? 1.15 : 0.87; // zoom out / in
-            const rect = plot.getBoundingClientRect();
-            const cx = e.clientX - rect.left;
 
             const xMin = u.scales.x.min!;
             const xMax = u.scales.x.max!;
             const xRange = xMax - xMin;
+            const rect = plot.getBoundingClientRect();
+            const cx = e.clientX - rect.left;
             const xPct = cx / rect.width;
 
-            const newRange = xRange * factor;
-            const newMin = xMin + (xRange - newRange) * xPct;
-            const newMax = newMin + newRange;
-
-            u.setScale('x', { min: newMin, max: newMax });
+            if (e.ctrlKey) {
+              // ── Pinch-to-zoom (macOS sends ctrlKey + deltaY for pinch) ──
+              const factor = e.deltaY > 0 ? 1.1 : 0.91;
+              const newRange = xRange * factor;
+              const newMin = xMin + (xRange - newRange) * xPct;
+              const newMax = newMin + newRange;
+              u.setScale('x', { min: newMin, max: newMax });
+              if (syncKey) broadcastScale(syncKey, u, newMin, newMax);
+            } else {
+              // ── Two-finger horizontal scroll → pan ──
+              // deltaX = horizontal scroll, deltaY = vertical scroll
+              // Use deltaX for horizontal panning; ignore pure vertical scroll
+              const dx = e.deltaX;
+              if (Math.abs(dx) < 1) return; // ignore pure vertical scroll
+              const pxPerUnit = rect.width / xRange;
+              const shift = dx / pxPerUnit;
+              const newMin = xMin + shift;
+              const newMax = xMax + shift;
+              u.setScale('x', { min: newMin, max: newMax });
+              if (syncKey) broadcastScale(syncKey, u, newMin, newMax);
+            }
           });
 
           plot.addEventListener('dblclick', () => {
             // Reset to full data range
             const xData = u.data[0];
             if (xData && xData.length > 0) {
-              u.setScale('x', {
-                min: xData[0] as number,
-                max: xData[xData.length - 1] as number,
-              });
+              const min = xData[0] as number;
+              const max = xData[xData.length - 1] as number;
+              u.setScale('x', { min, max });
+              if (syncKey) broadcastScale(syncKey, u, min, max);
             }
           });
+        },
+      ],
+      destroy: [
+        (u: uPlot) => {
+          if (syncKey) {
+            const group = scaleSyncGroups.get(syncKey);
+            if (group) {
+              group.charts.delete(u);
+              if (group.charts.size === 0) {
+                scaleSyncGroups.delete(syncKey);
+              }
+            }
+          }
         },
       ],
     },
@@ -70,9 +137,13 @@ function UPlotChart({ options, data, width, height, plugins }: UPlotChartProps) 
   // Track series count to know when to recreate vs just setData
   const seriesCount = options.series?.length ?? 0;
 
+  // Extract sync key from cursor options
+  const syncKey = useMemo(() => {
+    return (options.cursor as uPlot.Cursor | undefined)?.sync?.key ?? '';
+  }, [options.cursor]);
+
   // Stable key: recreate chart when series structure, scales, axes, or sync config changes
   const structureKey = useMemo(() => {
-    const syncKey = (options.cursor as uPlot.Cursor | undefined)?.sync?.key ?? '';
     // Capture scale directions (e.g. position chart uses dir:-1)
     const scalesKey = options.scales
       ? Object.entries(options.scales)
@@ -84,7 +155,7 @@ function UPlotChart({ options, data, width, height, plugins }: UPlotChartProps) 
       ? (options.axes as Array<{ label?: string }>).map((a) => a?.label || '').join(',')
       : '';
     return `${seriesCount}-${height ?? 300}-${syncKey}-${scalesKey}-${axesKey}`;
-  }, [seriesCount, height, options.cursor, options.scales, options.axes]);
+  }, [seriesCount, height, syncKey, options.scales, options.axes]);
 
   // Create/recreate chart when structure changes
   useEffect(() => {
@@ -113,7 +184,7 @@ function UPlotChart({ options, data, width, height, plugins }: UPlotChartProps) 
       ...curOpts,
       width: Math.max(w, 100),
       height: h,
-      plugins: [...(curPlugins || []), wheelZoomPlugin()],
+      plugins: [...(curPlugins || []), wheelZoomPlugin(syncKey || undefined)],
     } as uPlot.Options;
 
     try {

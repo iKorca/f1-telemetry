@@ -33,6 +33,9 @@ export interface PracticeRun {
 
   // Lap indices in the source session (for loading frames on demand)
   lapIndices: number[];
+
+  // Individual lap details (embedded for display)
+  laps?: PracticeRunLap[];
 }
 
 /**
@@ -50,6 +53,7 @@ export interface PracticeRunLap {
   tyreAge: number;
   fuel: number;
   valid: boolean;
+  isOutLap?: boolean;
 }
 
 /**

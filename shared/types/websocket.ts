@@ -2,6 +2,7 @@ import type { TelemetryData, LapDataPacket, CarStatusData, CarSetupsData, CarDam
 import type { SessionPacket, ParticipantsData, SessionHistoryData } from './session';
 import type { RecordingStatus } from './recording';
 import type { TunnelStatus } from './api';
+import type { PracticeWorkbook } from './practice';
 
 export interface RaceEngineerCar {
   name: string;
@@ -39,4 +40,5 @@ export type WSMessage =
   | { type: 'sessionHistory'; data: SessionHistoryData }
   | { type: 'raceEngineer'; data: RaceEngineerData }
   | { type: 'recStatus'; data: RecordingStatus }
-  | { type: 'tunnel'; data: TunnelStatus };
+  | { type: 'tunnel'; data: TunnelStatus }
+  | { type: 'practiceUpdate'; data: PracticeWorkbook };

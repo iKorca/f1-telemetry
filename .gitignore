@@ -1,7 +1,6 @@
 node_modules/
 dist/
-data/recordings/
-data/tracks/
+data/
 .DS_Store
 *.log
 .claude/

@@ -472,7 +472,7 @@ function extractPracticeRuns(session) {
 
   for (let i = 0; i < laps.length; i++) {
     const lap = laps[i];
-    if (lap.deleted || lap.isOutLap || lap.isPitLap) {
+    if (lap.deleted || lap.isPitLap) {
       // End current run if exists
       if (currentRun && currentRun.lapIndices.length > 0) {
         finalizeRun(currentRun, laps, session);
@@ -542,34 +542,99 @@ function extractPracticeRuns(session) {
 }
 
 function finalizeRun(run, laps, session) {
-  const validLaps = run.lapIndices
-    .map(i => laps[i])
-    .filter(l => l.valid !== false && l.lapTimeMs > 0);
+  const runLaps = run.lapIndices.map(i => laps[i]);
+  const validLaps = runLaps.filter(l => l.valid !== false && l.lapTimeMs > 0);
 
   run.lapCount = run.lapIndices.length;
   run.validLapCount = validLaps.length;
 
-  if (validLaps.length === 0) return;
+  // Embed individual lap details for frontend display
+  run.laps = runLaps.map(l => ({
+    lapNum: l.lapNum,
+    lapTimeMs: l.lapTimeMs || 0,
+    s1Ms: l.s1Ms || 0,
+    s2Ms: l.s2Ms || 0,
+    s3Ms: l.s3Ms || 0,
+    maxSpeed: l.maxSpeed || 0,
+    avgThrottle: l.avgThrottle || 0,
+    avgBrake: l.avgBrake || 0,
+    tyreAge: l.tyreAge || 0,
+    valid: l.valid !== false,
+    isOutLap: l.isOutLap || false,
+  }));
 
-  const times = validLaps.map(l => l.lapTimeMs);
-  run.bestLapMs = Math.min(...times);
-  run.avgLapMs = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+  if (validLaps.length > 0) {
+    const times = validLaps.map(l => l.lapTimeMs);
+    run.bestLapMs = Math.min(...times);
+    run.avgLapMs = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
 
-  run.bestS1Ms = Math.min(...validLaps.filter(l => l.s1Ms > 0).map(l => l.s1Ms)) || 0;
-  run.bestS2Ms = Math.min(...validLaps.filter(l => l.s2Ms > 0).map(l => l.s2Ms)) || 0;
-  run.bestS3Ms = Math.min(...validLaps.filter(l => l.s3Ms > 0).map(l => l.s3Ms)) || 0;
-  run.maxSpeed = Math.max(...validLaps.map(l => l.maxSpeed || 0));
-  run.avgThrottle = Math.round(validLaps.reduce((s, l) => s + (l.avgThrottle || 0), 0) / validLaps.length);
-  run.avgBrake = Math.round(validLaps.reduce((s, l) => s + (l.avgBrake || 0), 0) / validLaps.length);
+    run.bestS1Ms = Math.min(...validLaps.filter(l => l.s1Ms > 0).map(l => l.s1Ms)) || 0;
+    run.bestS2Ms = Math.min(...validLaps.filter(l => l.s2Ms > 0).map(l => l.s2Ms)) || 0;
+    run.bestS3Ms = Math.min(...validLaps.filter(l => l.s3Ms > 0).map(l => l.s3Ms)) || 0;
+  } else {
+    run.bestLapMs = 0;
+    run.avgLapMs = 0;
+  }
 
-  // Consistency score (same formula as frontend)
-  if (times.length >= 2) {
-    const mean = times.reduce((a, b) => a + b, 0) / times.length;
-    const variance = times.reduce((s, t) => s + (t - mean) ** 2, 0) / times.length;
+  run.maxSpeed = Math.max(...runLaps.map(l => l.maxSpeed || 0));
+  run.avgThrottle = Math.round(runLaps.reduce((s, l) => s + (l.avgThrottle || 0), 0) / runLaps.length);
+  run.avgBrake = Math.round(runLaps.reduce((s, l) => s + (l.avgBrake || 0), 0) / runLaps.length);
+
+  // Consistency score (only if 2+ valid laps)
+  const validTimes = validLaps.map(l => l.lapTimeMs);
+  if (validTimes.length >= 2) {
+    const mean = validTimes.reduce((a, b) => a + b, 0) / validTimes.length;
+    const variance = validTimes.reduce((s, t) => s + (t - mean) ** 2, 0) / validTimes.length;
     const cv = (Math.sqrt(variance) / mean) * 100;
     run.consistency = Math.round(Math.max(0, Math.min(100, 100 - cv * 10)));
   } else {
-    run.consistency = 100;
+    run.consistency = 0;
+  }
+}
+
+// ─── Live Practice Update ─────────────────────────────────────────────────────
+// Called when we receive authoritative lap data during a practice/TT session.
+// Extracts runs from the in-progress recording, saves the workbook, and broadcasts.
+
+const PRACTICE_SESSION_TYPES = new Set(['P1', 'P2', 'P3', 'Short P', 'Time Trial']);
+let lastPracticeLapCount = 0;
+
+function livePracticeUpdate() {
+  try {
+    const session = recorder.getCurrentSession();
+    if (!session) return;
+
+    // Only for practice and time-trial sessions
+    if (!PRACTICE_SESSION_TYPES.has(session.sessionType)) return;
+
+    // Only update when a new lap has been recorded
+    const lapCount = session.laps.length;
+    if (lapCount === 0 || lapCount === lastPracticeLapCount) return;
+    lastPracticeLapCount = lapCount;
+
+    const trackName = session.track || 'Unknown';
+    if (trackName === 'Unknown') return;
+
+    const runs = extractPracticeRuns(session);
+    if (runs.length === 0) return;
+
+    const wb = loadPracticeWorkbook(trackName);
+
+    // Upsert runs from this live session (replace existing by id, add new)
+    for (const run of runs) {
+      const existingIdx = wb.runs.findIndex(r => r.id === run.id);
+      if (existingIdx >= 0) {
+        wb.runs[existingIdx] = run;
+      } else {
+        wb.runs.push(run);
+      }
+    }
+
+    savePracticeWorkbook(wb);
+    broadcast('practiceUpdate', wb);
+  } catch (err) {
+    // Non-critical — don't crash the server
+    console.error('[Practice] Live update error:', err.message);
   }
 }
 
@@ -681,6 +746,7 @@ udp.on('message', msg => {
         }
 
         raceState = makeRaceState();
+        lastPracticeLapCount = 0;
         lastSessionUID = newUID;
       }
       break;
@@ -765,6 +831,8 @@ udp.on('message', msg => {
         if (recorder.getStatus().isRecording) {
           if (carIdx === playerIdx) {
             recorder.updateFromHistory(packet.data);
+            // Live practice update after authoritative lap data arrives
+            livePracticeUpdate();
           }
           recorder.updateCarHistory(carIdx, packet.data);
         }
@@ -809,3 +877,16 @@ server.listen(HTTP_PORT, () => {
   console.log(`  UDP:    port ${UDP_PORT}`);
   console.log('');
 });
+
+// ─── Graceful shutdown — save in-progress recording ──────────────────────────
+
+function gracefulShutdown(signal) {
+  console.log(`\n[Server] ${signal} received — saving in-progress recording...`);
+  if (recorder.getStatus().isRecording) {
+    recorder.saveCheckpoint();
+  }
+  process.exit(0);
+}
+
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
