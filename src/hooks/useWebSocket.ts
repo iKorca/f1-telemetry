@@ -8,6 +8,8 @@ import { useHistoryStore } from '../store/historyStore';
 import { usePracticeStore } from '../store/practiceStore';
 import * as api from '../lib/api';
 import type { WSMessage } from '@shared/types';
+import { useToastStore } from '../store/toastStore';
+import { eventToToast, type RaceEvent } from '../lib/raceEvents';
 
 /**
  * Packet types the server broadcasts but no client store consumes yet.
@@ -15,7 +17,6 @@ import type { WSMessage } from '@shared/types';
  * silently (only deliberately-deferred types log a dev hint).
  */
 const KNOWN_UNHANDLED_TYPES = new Set<string>([
-  'event',
   'finalClassification',
   'lobbyInfo',
   'motionEx',
@@ -215,6 +216,27 @@ export function useWebSocket(): void {
           case 'tunnel':
             useUIStore.getState().handleTunnel(data);
             break;
+          case 'event': {
+            // Race-event packet → toast. The mapper filters out noisy
+            // types (BUTN/FLBK/DRSE/DRSD/STLG/TMPT/non-player SPTP) and
+            // narrows others to player-involved cases, so the strip
+            // doesn't drown the user during a 50-lap race.
+            const tim = useTimingStore.getState();
+            const playerCarIndex = tim.playerCarIndex ?? -1;
+            const participants = tim.allParticipants?.participants ?? [];
+            const toast = eventToToast(data as RaceEvent, {
+              playerCarIndex,
+              participantName: (idx) =>
+                idx != null && participants[idx]?.name ? participants[idx].name : '—',
+            });
+            if (toast) {
+              useToastStore.getState().push(toast.message, {
+                kind: toast.kind,
+                timeoutMs: toast.timeoutMs,
+              });
+            }
+            break;
+          }
           case 'practiceUpdate': {
             const practiceState = usePracticeStore.getState();
             if (practiceState.selectedTrack === data.trackName) {
