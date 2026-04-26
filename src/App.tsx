@@ -1,5 +1,6 @@
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useWeatherTracker } from './hooks/useWeatherTracker';
 import { useUIStore } from './store/uiStore';
 import Header from './components/common/Header';
 import WeatherStrip from './components/common/WeatherStrip';
@@ -27,6 +28,7 @@ const PlaceholderTab = ({ label }: { label: string }) => (
 function App() {
   useWebSocket();
   useKeyboardShortcuts();
+  useWeatherTracker();
 
   const activeTab = useUIStore((s) => s.activeTab);
 

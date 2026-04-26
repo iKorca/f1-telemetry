@@ -472,58 +472,13 @@ app.delete('/api/practice/:track/runs/:runId', (req, res) => {
 // Recompute per-run aggregates from an already-finalized laps[] array. Used
 // by the split/merge endpoints below — lets the workbook re-normalise without
 // needing access to the original session recording.
-function recomputeRunAggregates(run) {
-  const laps = run.laps || [];
-  const valid = laps.filter(l => l.valid && l.lapTimeMs > 0);
-  const clean = laps.filter(l => l.valid && !l.trafficLap && l.lapTimeMs > 0);
-  const rollup = clean.length > 0 ? clean : valid;
-
-  run.lapCount = laps.length;
-  run.validLapCount = clean.length;
-
-  if (rollup.length > 0) {
-    const times = rollup.map(l => l.lapTimeMs);
-    run.bestLapMs = Math.min(...times);
-    run.avgLapMs = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
-    run.bestS1Ms = Math.min(...rollup.filter(l => l.s1Ms > 0).map(l => l.s1Ms)) || 0;
-    run.bestS2Ms = Math.min(...rollup.filter(l => l.s2Ms > 0).map(l => l.s2Ms)) || 0;
-    run.bestS3Ms = Math.min(...rollup.filter(l => l.s3Ms > 0).map(l => l.s3Ms)) || 0;
-  } else {
-    run.bestLapMs = 0; run.avgLapMs = 0;
-    run.bestS1Ms = 0; run.bestS2Ms = 0; run.bestS3Ms = 0;
-  }
-
-  run.maxSpeed = Math.max(0, ...laps.map(l => l.maxSpeed || 0));
-  run.avgThrottle = laps.length > 0
-    ? Math.round(laps.reduce((s, l) => s + (l.avgThrottle || 0), 0) / laps.length) : 0;
-  run.avgBrake = laps.length > 0
-    ? Math.round(laps.reduce((s, l) => s + (l.avgBrake || 0), 0) / laps.length) : 0;
-
-  // Consistency via CoV on clean laps
-  if (clean.length >= 2) {
-    const times = clean.map(l => l.lapTimeMs);
-    const m = times.reduce((a, b) => a + b, 0) / times.length;
-    const v = times.reduce((s, t) => s + (t - m) ** 2, 0) / times.length;
-    const cv = (Math.sqrt(v) / m) * 100;
-    run.consistency = Math.round(Math.max(0, Math.min(100, 100 - cv * 10)));
-  } else {
-    run.consistency = 0;
-  }
-
-  // Fuel — exclude tyreAge=0 (out laps have inflated fuel)
-  const fuelVals = laps.filter(l => l.fuel > 0 && l.tyreAge > 0).map(l => l.fuel);
-  run.avgFuelPerLap = fuelVals.length > 0 ? +(fuelVals.reduce((a, b) => a + b, 0) / fuelVals.length).toFixed(2) : 0;
-  run.maxFuelPerLap = fuelVals.length > 0 ? +Math.max(...fuelVals).toFixed(2) : 0;
-
-  // Degradation on valid tyreAge>0 laps
-  const degLaps = laps.filter(l => l.valid && l.lapTimeMs > 0 && l.tyreAge > 0);
-  const deltas = [];
-  for (let i = 1; i < degLaps.length; i++) {
-    deltas.push(degLaps[i].lapTimeMs - degLaps[i - 1].lapTimeMs);
-  }
-  run.avgDegradationMs = deltas.length > 0 ? Math.round(deltas.reduce((a, b) => a + b, 0) / deltas.length) : 0;
-  run.maxDegradationMs = deltas.length > 0 ? Math.max(...deltas) : 0;
-}
+// `recomputeRunAggregates` lives in `./server/analysis.js` so the live
+// finalize path and the split/merge endpoints share one source of truth.
+// The previous in-file copy stopped at degradation and silently dropped
+// engine + tyre-temp aggregates, so a manual run split wiped fields that
+// StintComparison.tsx reads — leaving the UI showing em-dash for laps
+// whose data was actually present.
+const { recomputeRunAggregates } = analysis;
 
 app.post('/api/practice/:track/runs/:runId/split', (req, res) => {
   const wb = loadPracticeWorkbook(req.params.track);
@@ -979,99 +934,10 @@ function finalizeRun(run, laps, session) {
     }
   }
 
-  // Clean laps = valid && not traffic-flagged (auto or manual). Used for
-  // best/avg lap rollups so one DRS-follow or backing-off lap doesn't poison
-  // the stint's headline stats.
-  const cleanRunLaps = run.laps.filter(l => l.valid && !l.trafficLap && l.lapTimeMs > 0);
-  // Fall back to validLaps if traffic-filtering wiped everything (tiny stint)
-  const rollupLaps = cleanRunLaps.length > 0 ? cleanRunLaps : run.laps.filter(l => l.valid && l.lapTimeMs > 0);
-
-  if (rollupLaps.length > 0) {
-    const times = rollupLaps.map(l => l.lapTimeMs);
-    run.bestLapMs = Math.min(...times);
-    run.avgLapMs = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
-
-    run.bestS1Ms = Math.min(...rollupLaps.filter(l => l.s1Ms > 0).map(l => l.s1Ms)) || 0;
-    run.bestS2Ms = Math.min(...rollupLaps.filter(l => l.s2Ms > 0).map(l => l.s2Ms)) || 0;
-    run.bestS3Ms = Math.min(...rollupLaps.filter(l => l.s3Ms > 0).map(l => l.s3Ms)) || 0;
-  } else {
-    run.bestLapMs = 0;
-    run.avgLapMs = 0;
-  }
-
-  run.maxSpeed = Math.max(...runLaps.map(l => l.maxSpeed || 0));
-  run.avgThrottle = Math.round(runLaps.reduce((s, l) => s + (l.avgThrottle || 0), 0) / runLaps.length);
-  run.avgBrake = Math.round(runLaps.reduce((s, l) => s + (l.avgBrake || 0), 0) / runLaps.length);
-
-  // Consistency score (only if 2+ valid laps)
-  const validTimes = validLaps.map(l => l.lapTimeMs);
-  if (validTimes.length >= 2) {
-    const mean = validTimes.reduce((a, b) => a + b, 0) / validTimes.length;
-    const variance = validTimes.reduce((s, t) => s + (t - mean) ** 2, 0) / validTimes.length;
-    const cv = (Math.sqrt(variance) / mean) * 100;
-    run.consistency = Math.round(Math.max(0, Math.min(100, 100 - cv * 10)));
-  } else {
-    run.consistency = 0;
-  }
-
-  // Fuel metrics (kg per lap) — exclude tyreAge=0 laps (first lap of stint has
-  // inflated fuel from teleport/pit-to-track, not representative of actual lap burn)
-  const fuelValues = run.laps.filter(l => l.fuel > 0 && l.tyreAge > 0).map(l => l.fuel);
-  run.avgFuelPerLap = fuelValues.length > 0
-    ? +(fuelValues.reduce((a, b) => a + b, 0) / fuelValues.length).toFixed(2)
-    : 0;
-  run.maxFuelPerLap = fuelValues.length > 0
-    ? +Math.max(...fuelValues).toFixed(2)
-    : 0;
-
-  // Tyre degradation (ms lost per consecutive lap) — exclude tyreAge=0
-  const validRunLaps = run.laps.filter(l => l.valid && l.lapTimeMs > 0 && l.tyreAge > 0);
-  const degradations = [];
-  for (let i = 1; i < validRunLaps.length; i++) {
-    degradations.push(validRunLaps[i].lapTimeMs - validRunLaps[i - 1].lapTimeMs);
-  }
-  run.avgDegradationMs = degradations.length > 0
-    ? Math.round(degradations.reduce((a, b) => a + b, 0) / degradations.length)
-    : 0;
-  run.maxDegradationMs = degradations.length > 0
-    ? Math.max(...degradations)
-    : 0;
-
-  // Tyre wear at end of stint (last lap's wear values)
-  const lastLapWithWear = [...run.laps].reverse().find(l => l.tyreWear && l.tyreWear.some(v => v > 0));
-  if (lastLapWithWear) {
-    run.tyreWearEnd = lastLapWithWear.tyreWear;
-    const wearVals = lastLapWithWear.tyreWear.filter(v => v > 0);
-    run.avgTyreWear = wearVals.length > 0 ? +(wearVals.reduce((a, b) => a + b, 0) / wearVals.length).toFixed(1) : 0;
-    run.maxTyreWear = wearVals.length > 0 ? +Math.max(...wearVals).toFixed(1) : 0;
-  } else {
-    run.tyreWearEnd = [0, 0, 0, 0];
-    run.avgTyreWear = 0;
-    run.maxTyreWear = 0;
-  }
-
-  // Engine temperature aggregates
-  const engineTemps = run.laps.filter(l => l.avgEngineTemp > 0).map(l => l.avgEngineTemp);
-  run.avgEngineTemp = engineTemps.length > 0 ? Math.round(engineTemps.reduce((a, b) => a + b, 0) / engineTemps.length) : 0;
-  run.maxEngineTemp = engineTemps.length > 0 ? Math.max(...engineTemps) : 0;
-
-  // Tyre temperature aggregates (average and max across all laps, per wheel)
-  run.avgTyreSurfaceTemp = [0, 0, 0, 0];
-  run.avgTyreInnerTemp = [0, 0, 0, 0];
-  run.maxTyreSurfaceTemp = [0, 0, 0, 0];
-  run.maxTyreInnerTemp = [0, 0, 0, 0];
-
-  const tempLaps = run.laps.filter(l => l.avgSurfaceTemp && l.avgSurfaceTemp.some(v => v > 0));
-  if (tempLaps.length > 0) {
-    for (let w = 0; w < 4; w++) {
-      const surfVals = tempLaps.map(l => l.avgSurfaceTemp[w]).filter(v => v > 0);
-      const innerVals = tempLaps.map(l => l.avgInnerTemp[w]).filter(v => v > 0);
-      run.avgTyreSurfaceTemp[w] = surfVals.length > 0 ? Math.round(surfVals.reduce((a, b) => a + b, 0) / surfVals.length) : 0;
-      run.avgTyreInnerTemp[w] = innerVals.length > 0 ? Math.round(innerVals.reduce((a, b) => a + b, 0) / innerVals.length) : 0;
-      run.maxTyreSurfaceTemp[w] = surfVals.length > 0 ? Math.max(...surfVals) : 0;
-      run.maxTyreInnerTemp[w] = innerVals.length > 0 ? Math.max(...innerVals) : 0;
-    }
-  }
+  // Roll up every per-lap field into the run-level aggregates. Shared
+  // with the split/merge endpoints via `recomputeRunAggregates` so the two
+  // paths can't drift in what they advertise.
+  recomputeRunAggregates(run);
 }
 
 // ─── Live Practice Update ─────────────────────────────────────────────────────

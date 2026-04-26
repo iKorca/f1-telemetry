@@ -117,7 +117,13 @@ function detectTrafficLaps(laps, k = 2.5) {
 
 /**
  * Recompute per-run aggregates from an already-populated `run.laps[]`. Used
- * after manual split/merge operations.
+ * by both the live finalize path and manual split/merge operations — the
+ * canonical source of truth for what fields a run advertises so the
+ * StintComparison UI can't read undefined after a split.
+ *
+ * Lap shape (only what the rollup reads): valid, lapTimeMs, trafficLap,
+ * s1Ms/s2Ms/s3Ms, maxSpeed, avgThrottle/avgBrake, fuel, tyreAge, tyreWear,
+ * avgEngineTemp, avgSurfaceTemp[4], avgInnerTemp[4].
  */
 function recomputeRunAggregates(run) {
   const laps = run.laps || [];
@@ -156,10 +162,12 @@ function recomputeRunAggregates(run) {
     run.consistency = 0;
   }
 
+  // Fuel — exclude tyreAge=0 laps (out laps have inflated fuel readings).
   const fuelVals = laps.filter((l) => l.fuel > 0 && l.tyreAge > 0).map((l) => l.fuel);
   run.avgFuelPerLap = fuelVals.length > 0 ? +(fuelVals.reduce((a, b) => a + b, 0) / fuelVals.length).toFixed(2) : 0;
   run.maxFuelPerLap = fuelVals.length > 0 ? +Math.max(...fuelVals).toFixed(2) : 0;
 
+  // Tyre degradation (ms lost per consecutive lap) — exclude tyreAge=0.
   const degLaps = laps.filter((l) => l.valid && l.lapTimeMs > 0 && l.tyreAge > 0);
   const deltas = [];
   for (let i = 1; i < degLaps.length; i++) {
@@ -167,6 +175,46 @@ function recomputeRunAggregates(run) {
   }
   run.avgDegradationMs = deltas.length > 0 ? Math.round(deltas.reduce((a, b) => a + b, 0) / deltas.length) : 0;
   run.maxDegradationMs = deltas.length > 0 ? Math.max(...deltas) : 0;
+
+  // Tyre wear at end of stint (last lap with non-zero wear data).
+  // Without this, split/merge wipes the StintComparison wear column.
+  const lastWearLap = [...laps].reverse().find((l) => l.tyreWear && l.tyreWear.some((v) => v > 0));
+  if (lastWearLap) {
+    run.tyreWearEnd = lastWearLap.tyreWear;
+    const wearVals = lastWearLap.tyreWear.filter((v) => v > 0);
+    run.avgTyreWear = wearVals.length > 0 ? +(wearVals.reduce((a, b) => a + b, 0) / wearVals.length).toFixed(1) : 0;
+    run.maxTyreWear = wearVals.length > 0 ? +Math.max(...wearVals).toFixed(1) : 0;
+  } else {
+    run.tyreWearEnd = [0, 0, 0, 0];
+    run.avgTyreWear = 0;
+    run.maxTyreWear = 0;
+  }
+
+  // Engine temperature aggregates (StintComparison.tsx columns 142, 149).
+  const engineTemps = laps.filter((l) => l.avgEngineTemp > 0).map((l) => l.avgEngineTemp);
+  run.avgEngineTemp = engineTemps.length > 0
+    ? Math.round(engineTemps.reduce((a, b) => a + b, 0) / engineTemps.length) : 0;
+  run.maxEngineTemp = engineTemps.length > 0 ? Math.max(...engineTemps) : 0;
+
+  // Per-wheel tyre temperature aggregates — surface and inner, avg + max.
+  // StintComparison.tsx (lines 181, 187, 193, 200) reads all four arrays.
+  run.avgTyreSurfaceTemp = [0, 0, 0, 0];
+  run.avgTyreInnerTemp = [0, 0, 0, 0];
+  run.maxTyreSurfaceTemp = [0, 0, 0, 0];
+  run.maxTyreInnerTemp = [0, 0, 0, 0];
+  const tempLaps = laps.filter((l) => l.avgSurfaceTemp && l.avgSurfaceTemp.some((v) => v > 0));
+  if (tempLaps.length > 0) {
+    for (let w = 0; w < 4; w++) {
+      const surfVals = tempLaps.map((l) => l.avgSurfaceTemp[w]).filter((v) => v > 0);
+      const innerVals = tempLaps.map((l) => (l.avgInnerTemp ? l.avgInnerTemp[w] : 0)).filter((v) => v > 0);
+      run.avgTyreSurfaceTemp[w] = surfVals.length > 0
+        ? Math.round(surfVals.reduce((a, b) => a + b, 0) / surfVals.length) : 0;
+      run.avgTyreInnerTemp[w] = innerVals.length > 0
+        ? Math.round(innerVals.reduce((a, b) => a + b, 0) / innerVals.length) : 0;
+      run.maxTyreSurfaceTemp[w] = surfVals.length > 0 ? Math.max(...surfVals) : 0;
+      run.maxTyreInnerTemp[w] = innerVals.length > 0 ? Math.max(...innerVals) : 0;
+    }
+  }
 }
 
 module.exports = {

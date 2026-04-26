@@ -10,6 +10,24 @@ import * as api from '../lib/api';
 import type { WSMessage } from '@shared/types';
 
 /**
+ * Packet types the server broadcasts but no client store consumes yet.
+ * Listed explicitly so a typo in a real packet name still falls through
+ * silently (only deliberately-deferred types log a dev hint).
+ */
+const KNOWN_UNHANDLED_TYPES = new Set<string>([
+  'event',
+  'finalClassification',
+  'lobbyInfo',
+  'motionEx',
+  'tyreSets',
+  'timeTrial',
+]);
+
+function knownUnhandledType(type: string): boolean {
+  return KNOWN_UNHANDLED_TYPES.has(type);
+}
+
+/**
  * WebSocket hook.
  *
  * Call once at App root.
@@ -214,6 +232,20 @@ export function useWebSocket(): void {
             }
             break;
           }
+          // The server also broadcasts the following packets that no client
+          // store consumes today: `event` (FTLP/PENA/OVTK race events),
+          // `finalClassification`, `lobbyInfo`, `motionEx` (G-force +
+          // suspension), `tyreSets`, `timeTrial`. They are intentional
+          // plumbing for future features (event toasts, race-results
+          // overlay, friction circle, etc.). Surface them in dev so the
+          // available capabilities are discoverable; in production we
+          // silently no-op to avoid console noise during a race.
+          default:
+            if (import.meta.env.DEV && knownUnhandledType(type)) {
+              // eslint-disable-next-line no-console
+              console.debug(`[WS] unhandled packet '${type}' — feature plumbing, no consumer wired yet`);
+            }
+            break;
         }
       };
 

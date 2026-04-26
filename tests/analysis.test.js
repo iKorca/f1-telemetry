@@ -179,4 +179,66 @@ describe('recomputeRunAggregates', () => {
     expect(run.avgFuelPerLap).toBeCloseTo(2.55, 2);
     expect(run.maxFuelPerLap).toBe(2.6);
   });
+
+  // The fields below are read by `StintComparison.tsx`. Before the
+  // analyzer was consolidated, split/merge silently wiped them — only
+  // `finalizeRun` populated them. Lock the rollups in so a regression
+  // would surface as a test failure rather than a silent em-dash in the UI.
+  it('rolls up engine temperature aggregates', () => {
+    const run = {
+      laps: [
+        makeLap(1, { avgEngineTemp: 110 }),
+        makeLap(2, { avgEngineTemp: 115 }),
+        makeLap(3, { avgEngineTemp: 113 }),
+      ],
+    };
+    recomputeRunAggregates(run);
+    expect(run.avgEngineTemp).toBe(Math.round((110 + 115 + 113) / 3));
+    expect(run.maxEngineTemp).toBe(115);
+  });
+
+  it('zeroes engine temp aggregates when no laps report it', () => {
+    const run = { laps: [makeLap(1)] };
+    recomputeRunAggregates(run);
+    expect(run.avgEngineTemp).toBe(0);
+    expect(run.maxEngineTemp).toBe(0);
+  });
+
+  it('snapshots end-of-stint tyre wear from the last lap with data', () => {
+    const run = {
+      laps: [
+        makeLap(1, { tyreWear: [5, 5, 5, 5] }),
+        makeLap(2, { tyreWear: [12, 14, 18, 22] }),
+        makeLap(3, { tyreWear: [0, 0, 0, 0] }), // no data — should be ignored
+      ],
+    };
+    recomputeRunAggregates(run);
+    expect(run.tyreWearEnd).toEqual([12, 14, 18, 22]);
+    expect(run.maxTyreWear).toBe(22);
+    // (12+14+18+22)/4 = 16.5
+    expect(run.avgTyreWear).toBeCloseTo(16.5, 1);
+  });
+
+  it('rolls up per-wheel tyre surface + inner temp aggregates', () => {
+    const run = {
+      laps: [
+        makeLap(1, { avgSurfaceTemp: [80, 82, 78, 79], avgInnerTemp: [90, 92, 88, 89] }),
+        makeLap(2, { avgSurfaceTemp: [88, 90, 86, 87], avgInnerTemp: [98, 100, 96, 97] }),
+      ],
+    };
+    recomputeRunAggregates(run);
+    expect(run.avgTyreSurfaceTemp).toEqual([84, 86, 82, 83]);
+    expect(run.maxTyreSurfaceTemp).toEqual([88, 90, 86, 87]);
+    expect(run.avgTyreInnerTemp).toEqual([94, 96, 92, 93]);
+    expect(run.maxTyreInnerTemp).toEqual([98, 100, 96, 97]);
+  });
+
+  it('initialises tyre temp arrays to zeros when no laps have temp data', () => {
+    const run = { laps: [makeLap(1)] }; // makeLap doesn't set surface/inner temps
+    recomputeRunAggregates(run);
+    expect(run.avgTyreSurfaceTemp).toEqual([0, 0, 0, 0]);
+    expect(run.maxTyreSurfaceTemp).toEqual([0, 0, 0, 0]);
+    expect(run.avgTyreInnerTemp).toEqual([0, 0, 0, 0]);
+    expect(run.maxTyreInnerTemp).toEqual([0, 0, 0, 0]);
+  });
 });
