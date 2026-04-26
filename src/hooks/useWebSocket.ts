@@ -207,7 +207,10 @@ export function useWebSocket(): void {
             prevRecordingRef.current = data.isRecording;
             useUIStore.getState().handleRecStatus(data);
             if (wasRecording && !data.isRecording) {
-              api.getSessions().then((list) => {
+              // Silent: this fires on every recording-end and would spam
+              // the toast strip during a transient backend hiccup. The
+              // History tab also reloads explicitly when the user opens it.
+              api.getSessions({ silent: true }).then((list) => {
                 useHistoryStore.getState().setSessions(list);
               }).catch(() => { });
             }

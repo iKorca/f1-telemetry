@@ -12,23 +12,57 @@ import type {
   PracticeRun,
   PracticeTrackSummary,
 } from '@shared/types';
+import { useToastStore } from '@/store/toastStore';
 
 const BASE = '/api';
 
-async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new Error(`API ${res.status}: ${text}`);
-  }
-  return res.json();
+/**
+ * Surfaces an API failure as an error toast so the user sees *something*
+ * instead of an empty panel. Callers can opt out via `{ silent: true }`
+ * when they handle the error themselves (e.g. background polling that
+ * shouldn't spam the strip on intermittent disconnects).
+ */
+interface FetchOpts {
+  silent?: boolean;
 }
 
-async function fetchVoid(url: string, init?: RequestInit): Promise<void> {
-  const res = await fetch(url, init);
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new Error(`API ${res.status}: ${text}`);
+function pushApiToast(method: string, url: string, err: unknown): void {
+  const message = err instanceof Error ? err.message : String(err);
+  // Strip the `/api/` prefix and any trailing query string so the toast
+  // body stays compact ("recordings/start" rather than the full URL).
+  const shortPath = url.replace(/^\/api\//, '').split('?')[0];
+  useToastStore.getState().push(
+    `Failed: ${method} ${shortPath} — ${message}`,
+    { kind: 'error', timeoutMs: 6000 },
+  );
+}
+
+async function fetchJSON<T>(url: string, init?: RequestInit, opts?: FetchOpts): Promise<T> {
+  const method = init?.method ?? 'GET';
+  try {
+    const res = await fetch(url, init);
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText);
+      throw new Error(`API ${res.status}: ${text}`);
+    }
+    return await res.json();
+  } catch (err) {
+    if (!opts?.silent) pushApiToast(method, url, err);
+    throw err;
+  }
+}
+
+async function fetchVoid(url: string, init?: RequestInit, opts?: FetchOpts): Promise<void> {
+  const method = init?.method ?? 'GET';
+  try {
+    const res = await fetch(url, init);
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText);
+      throw new Error(`API ${res.status}: ${text}`);
+    }
+  } catch (err) {
+    if (!opts?.silent) pushApiToast(method, url, err);
+    throw err;
   }
 }
 
@@ -48,8 +82,11 @@ export function saveSettings(settings: Partial<SettingsConfig>): Promise<Setting
 
 // ─── Sessions / Recordings ───────────────────────────────────────────────────
 
-export function getSessions(): Promise<SessionSummary[]> {
-  return fetchJSON<SessionSummary[]>(`${BASE}/recordings`);
+export function getSessions(opts?: FetchOpts): Promise<SessionSummary[]> {
+  // `opts.silent` lets background callers (post-recording-stop refresh in
+  // useWebSocket) skip the error toast — they re-fire on every recording
+  // boundary and would spam the strip during a server hiccup.
+  return fetchJSON<SessionSummary[]>(`${BASE}/recordings`, undefined, opts);
 }
 
 export function getSession(id: string): Promise<SessionDetail> {
