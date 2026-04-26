@@ -1,13 +1,24 @@
 .grid {
   height: 100%;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* 2×2 cluster on the left, full-height rivals column on the right.
+     The 1.6fr first column keeps the big DELTA / TYRE numbers dominant
+     while the rivals column gets a comfortable ~25% slice. */
+  grid-template-columns: 1.6fr 1.6fr 1fr;
   grid-template-rows: 1fr 1fr;
   gap: 8px;
   padding: 8px;
   background: var(--border);
   overflow: hidden;
 }
+
+/* Explicit placement — grid order in the markup mirrors visual order
+   so a future-tile insertion doesn't accidentally rearrange the layout. */
+.gridDelta    { grid-column: 1; grid-row: 1; }
+.gridWing     { grid-column: 2; grid-row: 1; }
+.gridTyre     { grid-column: 1; grid-row: 2; }
+.gridCompound { grid-column: 2; grid-row: 2; }
+.gridRivals   { grid-column: 3; grid-row: 1 / span 2; }
 
 /* Each tile becomes a sizing context so child clamps can scale with TILE
    width via container-query units (cqi). Avoids the redundant
@@ -371,13 +382,172 @@
   border: 1px solid rgba(245, 197, 24, 0.45);
 }
 
+/* ───────────── Rivals tile ───────────── */
+/* Two stacked rows, each one driver. Sized so position + name + gap fit
+   on one line at the third-column width (~25% of viewport on desktop). */
+
+.rivalsBody {
+  flex: 1;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 0.5rem;
+  min-height: 0;
+}
+
+.rivalRow {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  min-height: 0;
+  overflow: hidden;
+  container-type: inline-size;
+  container-name: rivalRow;
+}
+
+.rivalRoleLabel {
+  font-family: var(--font-d);
+  font-size: clamp(0.55rem, 4cqi, 0.75rem);
+  letter-spacing: 0.2em;
+  color: var(--grey);
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.rivalEmpty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-d);
+  font-size: clamp(0.8rem, 6cqi, 1.2rem);
+  color: var(--grey-light);
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+.rivalHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+
+.rivalPos {
+  font-family: var(--font-d);
+  font-size: clamp(0.85rem, 6.5cqi, 1.4rem);
+  font-weight: 700;
+  color: var(--grey-light);
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+
+.rivalName {
+  font-family: var(--font-d);
+  font-size: clamp(1rem, 8cqi, 1.7rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rivalGap {
+  font-family: var(--font-d);
+  font-size: clamp(0.85rem, 6.5cqi, 1.4rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--grey-light);
+  flex: 0 0 auto;
+}
+
+.rivalGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem 0.6rem;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.rivalStat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.rivalStatLabel {
+  font-family: var(--font-d);
+  font-size: clamp(0.55rem, 3.5cqi, 0.7rem);
+  letter-spacing: 0.18em;
+  color: var(--grey);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rivalStatValue {
+  font-family: var(--font-d);
+  font-size: clamp(1rem, 7cqi, 1.5rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--white);
+  white-space: nowrap;
+}
+
+.rivalStatSub {
+  font-family: var(--font-d);
+  font-size: clamp(0.5rem, 3.2cqi, 0.65rem);
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Front-wing damage is colour-coded by severity — yellow at 20-49 %,
+   red ≥50 %. Tile applies the class when present. */
+.rivalWarn .rivalStatValue {
+  color: var(--yellow);
+}
+.rivalDanger .rivalStatValue {
+  color: var(--red);
+}
+
+.rivalErsBar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 0.15rem;
+}
+.rivalErsFill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff8c1a 0%, #ffd84d 50%, #39d353 100%);
+  transition: width 0.25s;
+}
+
 /* Single-column reflow on narrow viewports. Sizing scales with tile
    container width via cqi, so we don't need to redeclare clamps here —
    the same rules give bigger text in a wider tile and smaller text in
-   a narrower one automatically. */
+   a narrower one automatically. Five tiles stack one above the other. */
 @media (max-width: 900px) {
   .grid {
     grid-template-columns: 1fr;
-    grid-template-rows: repeat(4, minmax(200px, 1fr));
+    grid-template-rows: repeat(5, minmax(200px, 1fr));
+  }
+  /* Override the explicit row/column placements so each tile flows
+     naturally into the next stacked slot. */
+  .gridDelta,
+  .gridWing,
+  .gridTyre,
+  .gridCompound,
+  .gridRivals {
+    grid-column: 1;
+    grid-row: auto;
   }
 }
