@@ -3,6 +3,8 @@ import type { PracticeRun } from '@shared/types';
 import { usePracticeStore } from '@/store/practiceStore';
 import { fmtTime, fmtDelta } from '@/lib/formatters';
 import * as api from '@/lib/api';
+import { invalidateSessionFrames } from '@/hooks/useLapFrames';
+import { useToast } from '@/hooks/useToast';
 import SetupGrid from '@/components/shared/SetupGrid';
 import styles from './PracticeTab.module.css';
 
@@ -23,9 +25,19 @@ export default function RunsTable({ runs }: RunsTableProps) {
   const updateRun = usePracticeStore((s) => s.updateRun);
   const selectedTrack = usePracticeStore((s) => s.selectedTrack);
   const setWorkbook = usePracticeStore((s) => s.setWorkbook);
+  const refRunId = usePracticeStore((s) => s.referenceRunId);
+  const refLapNum = usePracticeStore((s) => s.referenceLapNum);
+  const setReferenceLap = usePracticeStore((s) => s.setReferenceLap);
+  const cmpRunId = usePracticeStore((s) => s.comparisonRunId);
+  const cmpLapNum = usePracticeStore((s) => s.comparisonLapNum);
+  const setComparisonLap = usePracticeStore((s) => s.setComparisonLap);
+  const toast = useToast();
 
   const [expandedRunIds, setExpandedRunIds] = useState<Set<string>>(new Set());
   const [expandedSetupIds, setExpandedSetupIds] = useState<Set<string>>(new Set());
+  // Lap-level: which rows currently have the note editor open
+  const [notingLap, setNotingLap] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState<string>('');
 
   const baselineRun = runs.find((r) => r.id === baselineRunId);
   const baselineBest = baselineRun?.bestLapMs ?? 0;
@@ -61,14 +73,53 @@ export default function RunsTable({ runs }: RunsTableProps) {
   const handleDelete = useCallback(
     async (runId: string) => {
       if (!selectedTrack) return;
+      const run = runs.find((r) => r.id === runId);
       try {
         const wb = await api.deletePracticeRun(selectedTrack, runId);
         setWorkbook(wb);
+        if (run?.sessionId) invalidateSessionFrames(run.sessionId);
+        toast(`Deleted ${run?.label || run?.compound || 'run'}`, 'success');
       } catch (err) {
         console.error('Delete run error:', err);
+        toast(`Delete failed: ${(err as Error).message}`, 'error');
       }
     },
-    [selectedTrack, setWorkbook],
+    [selectedTrack, setWorkbook, runs, toast],
+  );
+
+  const handleSplit = useCallback(
+    async (runId: string, atLap: number) => {
+      if (!selectedTrack) return;
+      const run = runs.find((r) => r.id === runId);
+      try {
+        const wb = await api.splitPracticeRun(selectedTrack, runId, atLap);
+        setWorkbook(wb);
+        if (run?.sessionId) invalidateSessionFrames(run.sessionId);
+        toast(`Split at lap ${atLap}`, 'success');
+      } catch (err) {
+        console.error('Split run error:', err);
+        toast(`Split failed: ${(err as Error).message}`, 'error');
+      }
+    },
+    [selectedTrack, setWorkbook, runs, toast],
+  );
+
+  const handleMerge = useCallback(
+    async (primaryRunId: string, withRunId: string) => {
+      if (!selectedTrack) return;
+      if (!window.confirm('Merge this run into the previous one? The label will be concatenated.')) return;
+      const primary = runs.find((r) => r.id === primaryRunId);
+      try {
+        const wb = await api.mergePracticeRuns(selectedTrack, primaryRunId, withRunId);
+        setWorkbook(wb);
+        if (primary?.sessionId) invalidateSessionFrames(primary.sessionId);
+        toast('Merged runs', 'success');
+      } catch (err) {
+        console.error('Merge runs error:', err);
+        toast(`Merge failed: ${(err as Error).message}`, 'error');
+      }
+    },
+    [selectedTrack, setWorkbook, runs, toast],
   );
 
   const handleBaselineClick = useCallback(
@@ -78,11 +129,76 @@ export default function RunsTable({ runs }: RunsTableProps) {
     [baselineRunId, setBaselineRunId],
   );
 
+  // Persist a lap-level change and reflect it locally so the UI updates without
+  // waiting for a workbook round-trip.
+  const patchLap = useCallback(
+    async (runId: string, lapNum: number, changes: { flag?: string | null; notes?: string; valid?: boolean }) => {
+      if (!selectedTrack) return;
+      try {
+        // Optimistic local update
+        const run = runs.find((r) => r.id === runId);
+        if (run && run.laps) {
+          const lap = run.laps.find((l) => l.lapNum === lapNum);
+          if (lap) {
+            if (changes.flag !== undefined) lap.flag = (changes.flag || null) as any;
+            if (changes.notes !== undefined) lap.notes = changes.notes;
+            if (changes.valid !== undefined) lap.valid = changes.valid;
+          }
+          updateRun(runId, { laps: run.laps });
+        }
+        await api.updatePracticeLap(selectedTrack, runId, lapNum, changes);
+      } catch (err) {
+        console.error('updatePracticeLap error:', err);
+      }
+    },
+    [runs, selectedTrack, updateRun],
+  );
+
+  const cycleFlag = (current: string | null | undefined): string | null => {
+    switch (current) {
+      case null:
+      case undefined:
+        return 'traffic';
+      case 'traffic':
+        return 'mistake';
+      case 'mistake':
+        return 'clean';
+      case 'clean':
+        return null;
+      default:
+        return null;
+    }
+  };
+
   // Sort: pinned first, then by timestamp descending
   const sorted = [...runs].sort((a, b) => {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
     return b.timestamp - a.timestamp;
   });
+
+  // For each sorted run, find the previous run in the same session — that's
+  // the only neighbour we let users merge backwards into (merging across
+  // sessions would mix unrelated laps).
+  const prevRunInSession = new Map<string, string>();
+  {
+    const bySession = new Map<string, typeof sorted>();
+    for (const r of sorted) {
+      const arr = bySession.get(r.sessionId) || [];
+      arr.push(r);
+      bySession.set(r.sessionId, arr);
+    }
+    for (const arr of bySession.values()) {
+      // Sort ascending by earliest lap for intuitive "previous stint" semantics
+      arr.sort((a, b) => {
+        const aMin = a.laps?.length ? Math.min(...a.laps.map(l => l.lapNum)) : 0;
+        const bMin = b.laps?.length ? Math.min(...b.laps.map(l => l.lapNum)) : 0;
+        return aMin - bMin;
+      });
+      for (let i = 1; i < arr.length; i++) {
+        prevRunInSession.set(arr[i].id, arr[i - 1].id);
+      }
+    }
+  }
 
   // Total column count (without delta column)
   const baseColCount = 12;
@@ -242,18 +358,57 @@ export default function RunsTable({ runs }: RunsTableProps) {
                       {isBaseline ? 'BASE' : 'Set'}
                     </button>
                   </td>
-                  <td>
+                  <td style={{ whiteSpace: 'nowrap', display: 'flex', gap: 2 }}>
+                    {prevRunInSession.has(run.id) && (
+                      <button
+                        className={styles.btnXs}
+                        aria-label="Merge with previous stint"
+                        title="Merge this run into the previous stint in the same session"
+                        onClick={() => {
+                          const prevId = prevRunInSession.get(run.id);
+                          if (prevId) handleMerge(prevId, run.id);
+                        }}
+                      >
+                        MERGE↑
+                      </button>
+                    )}
                     <button
-                      className="btn"
-                      style={{
-                        fontSize: '0.45rem',
-                        padding: '0.1rem 0.3rem',
-                        color: 'var(--red)',
-                        borderColor: 'rgba(232,0,45,0.3)',
+                      className={styles.btnXs}
+                      aria-label="Export run as CSV"
+                      title="Export run as CSV"
+                      onClick={() => {
+                        if (!selectedTrack) return;
+                        window.open(
+                          `/api/practice/${encodeURIComponent(selectedTrack)}/runs/${run.id}/export?format=csv`,
+                          '_blank',
+                        );
+                        toast('CSV download started', 'success', 2500);
                       }}
+                    >
+                      CSV
+                    </button>
+                    <button
+                      className={styles.btnXs}
+                      aria-label="Export run as JSON"
+                      title="Export run as JSON"
+                      onClick={() => {
+                        if (!selectedTrack) return;
+                        window.open(
+                          `/api/practice/${encodeURIComponent(selectedTrack)}/runs/${run.id}/export?format=json`,
+                          '_blank',
+                        );
+                        toast('JSON download started', 'success', 2500);
+                      }}
+                    >
+                      JSON
+                    </button>
+                    <button
+                      className={`${styles.btnXs} ${styles.btnXsDanger}`}
+                      aria-label="Delete run"
+                      title="Delete run"
                       onClick={() => handleDelete(run.id)}
                     >
-                      x
+                      ×
                     </button>
                   </td>
                 </tr>
@@ -280,6 +435,20 @@ export default function RunsTable({ runs }: RunsTableProps) {
                         <span className={styles.lapNum}>
                           L{lap.lapNum}
                           {lap.isOutLap && <span style={{ color: 'var(--yellow)', marginLeft: '4px', fontSize: '0.45rem' }}>[OUT]</span>}
+                          {lap.trafficLap && (
+                            <span
+                              title="Auto-flagged as traffic (lap-time / max-speed / S3 outside 2.5×MAD of stint median)"
+                              style={{ color: 'var(--orange)', marginLeft: '4px', fontSize: '0.45rem' }}
+                            >
+                              [TRAFFIC]
+                            </span>
+                          )}
+                          {lap.flag === 'mistake' && (
+                            <span style={{ color: 'var(--red)', marginLeft: '4px', fontSize: '0.45rem' }}>[MISTAKE]</span>
+                          )}
+                          {lap.flag === 'reference' && (
+                            <span style={{ color: 'var(--blue)', marginLeft: '4px', fontSize: '0.45rem' }}>[REF]</span>
+                          )}
                         </span>
                       </td>
                       <td colSpan={3}>
@@ -315,9 +484,147 @@ export default function RunsTable({ runs }: RunsTableProps) {
                       <td>{lap.maxSpeed > 0 ? lap.maxSpeed : '\u2014'}</td>
                       <td colSpan={2} style={{ fontSize: '0.52rem', color: 'var(--grey)' }}>
                         Tyre age: {lap.tyreAge}
+                        {lap.fuel > 0 && ` · Fuel: ${lap.fuel.toFixed(2)} kg`}
                         {!lap.valid && ' · invalid'}
+                        {lap.notes && (
+                          <span title={lap.notes} style={{ color: 'var(--yellow)', marginLeft: '4px' }}>
+                            · note
+                          </span>
+                        )}
                       </td>
-                      <td></td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                          <button
+                            className={`${styles.btnXs} ${refRunId === run.id && refLapNum === lap.lapNum ? styles.btnXsActive : ''}`}
+                            aria-pressed={refRunId === run.id && refLapNum === lap.lapNum}
+                            title="Pin this lap as the chart reference (Δ mode)"
+                            onClick={() => {
+                              if (refRunId === run.id && refLapNum === lap.lapNum) setReferenceLap(null, null);
+                              else setReferenceLap(run.id, lap.lapNum);
+                            }}
+                          >
+                            REF
+                          </button>
+                          <button
+                            className={styles.btnXs}
+                            aria-pressed={cmpRunId === run.id && cmpLapNum === lap.lapNum}
+                            style={
+                              cmpRunId === run.id && cmpLapNum === lap.lapNum
+                                ? { color: 'var(--orange)', borderColor: 'rgba(246,148,24,0.5)' }
+                                : undefined
+                            }
+                            title="Pin this lap as the compare lap"
+                            onClick={() => {
+                              if (cmpRunId === run.id && cmpLapNum === lap.lapNum) setComparisonLap(null, null);
+                              else setComparisonLap(run.id, lap.lapNum);
+                            }}
+                          >
+                            CMP
+                          </button>
+                          <button
+                            className={styles.btnXs}
+                            style={
+                              lap.flag === 'mistake' ? { color: 'var(--red)' }
+                              : lap.flag === 'traffic' ? { color: 'var(--orange)' }
+                              : lap.flag === 'clean' ? { color: 'var(--green)' }
+                              : undefined
+                            }
+                            title={`Cycle flag (current: ${lap.flag || 'none'})`}
+                            onClick={() => patchLap(run.id, lap.lapNum, { flag: cycleFlag(lap.flag) })}
+                          >
+                            {lap.flag ? String(lap.flag).slice(0, 4).toUpperCase() : 'FLAG'}
+                          </button>
+                          <button
+                            className={`${styles.btnXs} ${!lap.valid ? styles.btnXsDanger : ''}`}
+                            aria-pressed={!lap.valid}
+                            title="Toggle valid (exclude from best/avg)"
+                            onClick={() => patchLap(run.id, lap.lapNum, { valid: !lap.valid })}
+                          >
+                            {lap.valid ? 'VALID' : 'INVAL'}
+                          </button>
+                          <button
+                            className={styles.btnXs}
+                            title={lap.notes ? `Edit note: "${lap.notes}"` : 'Add note'}
+                            onClick={() => {
+                              const key = `${run.id}_${lap.lapNum}`;
+                              if (notingLap === key) setNotingLap(null);
+                              else {
+                                setNotingLap(key);
+                                setNoteDraft(lap.notes || '');
+                              }
+                            }}
+                          >
+                            NOTE
+                          </button>
+                          {run.laps && i > 0 && (
+                            <button
+                              className={styles.btnXs}
+                              style={{ color: 'var(--orange)' }}
+                              title={`Split stint starting from lap ${lap.lapNum} (creates two stints)`}
+                              onClick={() => handleSplit(run.id, lap.lapNum)}
+                            >
+                              SPLIT↕
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {/* Inline note editor, one per expanded lap at a time */}
+                {isExpanded && hasLaps && run.laps!.map((lap) => {
+                  const key = `${run.id}_${lap.lapNum}`;
+                  if (notingLap !== key) return null;
+                  return (
+                    <tr key={`${key}_note`} className={styles.lapDetailRow}>
+                      <td colSpan={100} style={{ padding: '0.4rem 0.6rem' }}>
+                        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                          <span style={{ fontFamily: 'var(--font-d)', fontSize: '0.5rem', color: 'var(--grey)' }}>
+                            L{lap.lapNum} NOTE
+                          </span>
+                          <input
+                            autoFocus
+                            value={noteDraft}
+                            onChange={(e) => setNoteDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                patchLap(run.id, lap.lapNum, { notes: noteDraft });
+                                setNotingLap(null);
+                              }
+                              if (e.key === 'Escape') setNotingLap(null);
+                            }}
+                            placeholder="e.g. locked up T1, DRS failed..."
+                            style={{
+                              flex: 1,
+                              background: 'transparent',
+                              border: '1px solid var(--border)',
+                              borderRadius: '3px',
+                              color: 'var(--white)',
+                              fontFamily: 'var(--font-d)',
+                              fontSize: '0.55rem',
+                              padding: '0.2rem 0.4rem',
+                            }}
+                          />
+                          <button
+                            className="btn"
+                            style={{ fontSize: '0.5rem' }}
+                            onClick={() => {
+                              patchLap(run.id, lap.lapNum, { notes: noteDraft });
+                              setNotingLap(null);
+                            }}
+                          >
+                            SAVE
+                          </button>
+                          <button
+                            className="btn"
+                            style={{ fontSize: '0.5rem' }}
+                            onClick={() => setNotingLap(null)}
+                          >
+                            CANCEL
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { SessionPacket, MarshalZone, WeatherForecastItem } from '@shared/types';
+import { useTimingStore } from './timingStore';
 
 interface TrackPoint {
   x: number;
@@ -83,6 +84,15 @@ export const useSessionInfoStore = create<SessionInfoState>()((set) => ({
   handleSession: (data) => {
     set((state) => {
       const trackChanged = data.trackId !== undefined && data.trackId !== state.trackId;
+      const typeChanged = !!data.sessionTypeName && data.sessionTypeName !== state.sessionTypeName;
+      // Session transition: any track OR session-type flip means the old
+      // lap times / session history don't apply any more. Clear the timing
+      // store eagerly so PBs, sector bests, and stint histories start fresh.
+      if (trackChanged || typeChanged) {
+        // Session transition — clear the timing store so PBs / sector bests
+        // from the previous session don't leak through.
+        useTimingStore.getState().resetForNewSession();
+      }
       return {
         trackName: data.trackName || '',
         trackId: data.trackId ?? state.trackId,

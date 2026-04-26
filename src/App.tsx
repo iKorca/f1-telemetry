@@ -12,6 +12,8 @@ import HistoryTab from './components/history/HistoryTab';
 import PracticeTab from './components/practice/PracticeTab';
 import SettingsTab from './components/settings/SettingsTab';
 import ShortcutsOverlay from './components/settings/ShortcutsOverlay';
+import ToastStack from './components/common/ToastStack';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 const PlaceholderTab = ({ label }: { label: string }) => (
   <div style={{
@@ -35,28 +37,29 @@ function App() {
       <TabNavigation />
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         <div style={{ display: activeTab === 'dashboard' ? 'block' : 'none', height: '100%' }}>
-          <DashboardTab />
+          <ErrorBoundary label="Dashboard"><DashboardTab /></ErrorBoundary>
         </div>
         <div style={{ display: activeTab === 'timing' ? 'flex' : 'none', height: '100%', flexDirection: 'column' }}>
-          <TimingTab />
+          <ErrorBoundary label="Timing"><TimingTab /></ErrorBoundary>
         </div>
         <div style={{ display: activeTab === 'race' ? 'flex' : 'none', height: '100%', flexDirection: 'column' }}>
-          <RaceTab />
+          <ErrorBoundary label="Race"><RaceTab /></ErrorBoundary>
         </div>
         <div style={{ display: activeTab === 'session' ? 'flex' : 'none', height: '100%', flexDirection: 'column' }}>
-          <SessionTab />
+          <ErrorBoundary label="Session"><SessionTab /></ErrorBoundary>
         </div>
         <div style={{ display: activeTab === 'history' ? 'flex' : 'none', height: '100%', flexDirection: 'column' as const }}>
-          <HistoryTab />
+          <ErrorBoundary label="History"><HistoryTab /></ErrorBoundary>
         </div>
         <div style={{ display: activeTab === 'practice' ? 'flex' : 'none', height: '100%', flexDirection: 'column' }}>
-          <PracticeTab />
+          <ErrorBoundary label="Practice"><PracticeTab /></ErrorBoundary>
         </div>
         <div style={{ display: activeTab === 'settings' ? 'block' : 'none', height: '100%' }}>
-          <SettingsTab />
+          <ErrorBoundary label="Settings"><SettingsTab /></ErrorBoundary>
         </div>
       </div>
       <ShortcutsOverlay />
+      <ToastStack />
     </>
   );
 }

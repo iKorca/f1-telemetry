@@ -1,5 +1,9 @@
-import type { TelemetryData, LapDataPacket, CarStatusData, CarSetupsData, CarDamageData, MotionPacket } from './telemetry';
-import type { SessionPacket, ParticipantsData, SessionHistoryData } from './session';
+import type { TelemetryData, LapDataPacket, CarStatusData, CarSetupsData, CarDamageData, MotionPacket, MotionExData } from './telemetry';
+import type {
+  SessionPacket, ParticipantsData, SessionHistoryData,
+  EventData, FinalClassificationData, LobbyInfoData,
+  TyreSetsData, TimeTrialData, LapPositionsData,
+} from './session';
 import type { RecordingStatus } from './recording';
 import type { TunnelStatus } from './api';
 import type { PracticeWorkbook } from './practice';
@@ -37,7 +41,14 @@ export type WSMessage =
   | { type: 'carSetups'; data: CarSetupsData }
   | { type: 'carDamage'; data: CarDamageData }
   | { type: 'motion'; data: MotionPacket }
+  | { type: 'motionEx'; data: MotionExData }
   | { type: 'sessionHistory'; data: SessionHistoryData }
+  | { type: 'event'; data: EventData }
+  | { type: 'finalClassification'; data: FinalClassificationData }
+  | { type: 'lobbyInfo'; data: LobbyInfoData }
+  | { type: 'tyreSets'; data: TyreSetsData }
+  | { type: 'timeTrial'; data: TimeTrialData }
+  | { type: 'lapPositions'; data: LapPositionsData }
   | { type: 'raceEngineer'; data: RaceEngineerData }
   | { type: 'recStatus'; data: RecordingStatus }
   | { type: 'tunnel'; data: TunnelStatus }

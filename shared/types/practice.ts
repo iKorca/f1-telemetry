@@ -31,6 +31,29 @@ export interface PracticeRun {
   avgBrake: number;
   consistency: number; // 0-100
 
+  // Fuel metrics (kg per lap)
+  avgFuelPerLap: number;
+  maxFuelPerLap: number;
+
+  // Tyre degradation (ms per lap — positive = getting slower)
+  avgDegradationMs: number;
+  maxDegradationMs: number;
+
+  // Tyre wear at end of stint (% per wheel: [RL, RR, FL, FR])
+  tyreWearEnd: [number, number, number, number];
+  avgTyreWear: number;   // average across 4 wheels at end
+  maxTyreWear: number;   // worst wheel at end
+
+  // Engine temperature (average and max across stint)
+  avgEngineTemp: number;
+  maxEngineTemp: number;
+
+  // Tyre temperatures (average across stint, per wheel: [RL, RR, FL, FR])
+  avgTyreSurfaceTemp: [number, number, number, number];
+  avgTyreInnerTemp: [number, number, number, number];
+  maxTyreSurfaceTemp: [number, number, number, number];
+  maxTyreInnerTemp: [number, number, number, number];
+
   // Lap indices in the source session (for loading frames on demand)
   lapIndices: number[];
 
@@ -52,8 +75,24 @@ export interface PracticeRunLap {
   avgBrake: number;
   tyreAge: number;
   fuel: number;
+  tyreWear: [number, number, number, number];         // % at lap end [RL, RR, FL, FR]
+  avgSurfaceTemp: [number, number, number, number];   // avg during lap [RL, RR, FL, FR]
+  avgInnerTemp: [number, number, number, number];     // avg during lap [RL, RR, FL, FR]
+  avgBrakeTemp?: [number, number, number, number];    // avg during lap
+  avgPressure?: [number, number, number, number];     // avg during lap (psi)
+  avgEngineTemp: number;                              // avg during lap
+  avgBatteryPct?: number;                             // 0-100, averaged across lap
+  ersHarvestedMJ?: number;                            // energy harvested this lap (MJ)
+  ersDeployedMJ?: number;                             // energy deployed this lap (MJ)
   valid: boolean;
   isOutLap?: boolean;
+  isPitLap?: boolean;
+  trafficLap?: boolean;                                // auto-flagged by MAD outlier detection
+  flag?: 'traffic' | 'mistake' | 'reference' | 'clean' | null;
+  notes?: string;
+  trackTemp?: number | null;                           // °C at lap completion
+  airTemp?: number | null;                             // °C at lap completion
+  weather?: string | null;                             // e.g. "Light Cloud"
 }
 
 /**

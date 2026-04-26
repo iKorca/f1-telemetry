@@ -11,6 +11,7 @@ const { parsePacket, PACKET_IDS } = require('./f1-parser');
 const Recorder      = require('./recorder');
 const Settings      = require('./settings');
 const TRACK_OUTLINES = require('./track-outlines');
+const analysis      = require('./server/analysis');
 
 // ─── Data directory ───────────────────────────────────────────────────────────
 
@@ -37,15 +38,21 @@ app.use(express.static(path.join(__dirname, 'dist')));
 // ─── Telemetry state ──────────────────────────────────────────────────────────
 
 const state = {
-  telemetry:      null,
-  lapData:        null,
-  carStatus:      null,
-  carSetups:      null,
-  session:        null,
-  participants:   null,
-  carDamage:      null,
-  motion:         null,
-  sessionHistory: null,
+  telemetry:           null,
+  lapData:             null,
+  carStatus:           null,
+  carSetups:           null,
+  session:             null,
+  participants:        null,
+  carDamage:           null,
+  motion:              null,
+  motionEx:            null,
+  sessionHistory:      null,
+  lobbyInfo:           null,
+  timeTrial:           null,
+  lapPositions:        null,
+  finalClassification: null,
+  tyreSets:            {}, // keyed by carIdx (one packet per car)
 };
 
 let lastSessionUID = null;
@@ -88,7 +95,12 @@ function updateRaceState() {
   raceState.active = true;
   const allLaps   = state.lapData.allCars;
   const allStatus = state.carStatus?.allCars || [];
-  const allParts  = state.participants?.allDrivers || state.participants?.drivers || [];
+  // The parser exposes `participants` on ParticipantsData; the two older
+  // aliases are left in for backwards compatibility with any mock data.
+  const allParts  = state.participants?.participants
+    || state.participants?.allDrivers
+    || state.participants?.drivers
+    || [];
 
   for (let i = 0; i < Math.min(allLaps.length, NUM_CARS); i++) {
     const lap = allLaps[i];
@@ -127,10 +139,16 @@ function updateRaceState() {
       const compound = tyreName(st.visualTyreCompound, st.actualTyreCompound);
       car.tyreAge = st.tyresAgeLaps || 0;
 
-      // Detect compound change
-      if (car.currentCompound && compound !== car.currentCompound) {
+      // Detect compound change — but don't record a phantom stint if the
+      // previous compound reading was the parser's UNKNOWN fallback (first
+      // status packet for a car sometimes lands before compound is set).
+      // A spurious grey segment at the front of the Stint History column
+      // was the direct symptom of this.
+      const prev = car.currentCompound;
+      const valid = (c) => c && c !== 'UNKNOWN';
+      if (valid(prev) && prev !== compound) {
         car.stints.push({
-          compound: car.currentCompound,
+          compound: prev,
           startLap: car.stints.length > 0
             ? car.stints[car.stints.length - 1].endLap + 1
             : 1,
@@ -167,10 +185,20 @@ wss.on('connection', ws => {
   console.log('[WS] Browser connected');
 
   // Replay cached state
-  const order = ['session', 'participants', 'carStatus', 'carSetups', 'lapData', 'telemetry', 'carDamage', 'motion', 'sessionHistory'];
+  const order = [
+    'session', 'participants', 'carStatus', 'carSetups', 'lapData', 'telemetry',
+    'carDamage', 'motion', 'motionEx', 'sessionHistory', 'lobbyInfo',
+    'timeTrial', 'lapPositions', 'finalClassification',
+  ];
   for (const key of order) {
     if (state[key]) {
       ws.send(JSON.stringify({ type: key, data: state[key] }));
+    }
+  }
+  // Replay per-car tyre sets
+  if (state.tyreSets && Object.keys(state.tyreSets).length > 0) {
+    for (const carIdx of Object.keys(state.tyreSets)) {
+      ws.send(JSON.stringify({ type: 'tyreSets', data: state.tyreSets[carIdx] }));
     }
   }
 
@@ -440,6 +468,193 @@ app.delete('/api/practice/:track/runs/:runId', (req, res) => {
   res.json(wb);
 });
 
+// ── Manual stint split / merge ─────────────────────────────────────────────
+// Recompute per-run aggregates from an already-finalized laps[] array. Used
+// by the split/merge endpoints below — lets the workbook re-normalise without
+// needing access to the original session recording.
+function recomputeRunAggregates(run) {
+  const laps = run.laps || [];
+  const valid = laps.filter(l => l.valid && l.lapTimeMs > 0);
+  const clean = laps.filter(l => l.valid && !l.trafficLap && l.lapTimeMs > 0);
+  const rollup = clean.length > 0 ? clean : valid;
+
+  run.lapCount = laps.length;
+  run.validLapCount = clean.length;
+
+  if (rollup.length > 0) {
+    const times = rollup.map(l => l.lapTimeMs);
+    run.bestLapMs = Math.min(...times);
+    run.avgLapMs = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+    run.bestS1Ms = Math.min(...rollup.filter(l => l.s1Ms > 0).map(l => l.s1Ms)) || 0;
+    run.bestS2Ms = Math.min(...rollup.filter(l => l.s2Ms > 0).map(l => l.s2Ms)) || 0;
+    run.bestS3Ms = Math.min(...rollup.filter(l => l.s3Ms > 0).map(l => l.s3Ms)) || 0;
+  } else {
+    run.bestLapMs = 0; run.avgLapMs = 0;
+    run.bestS1Ms = 0; run.bestS2Ms = 0; run.bestS3Ms = 0;
+  }
+
+  run.maxSpeed = Math.max(0, ...laps.map(l => l.maxSpeed || 0));
+  run.avgThrottle = laps.length > 0
+    ? Math.round(laps.reduce((s, l) => s + (l.avgThrottle || 0), 0) / laps.length) : 0;
+  run.avgBrake = laps.length > 0
+    ? Math.round(laps.reduce((s, l) => s + (l.avgBrake || 0), 0) / laps.length) : 0;
+
+  // Consistency via CoV on clean laps
+  if (clean.length >= 2) {
+    const times = clean.map(l => l.lapTimeMs);
+    const m = times.reduce((a, b) => a + b, 0) / times.length;
+    const v = times.reduce((s, t) => s + (t - m) ** 2, 0) / times.length;
+    const cv = (Math.sqrt(v) / m) * 100;
+    run.consistency = Math.round(Math.max(0, Math.min(100, 100 - cv * 10)));
+  } else {
+    run.consistency = 0;
+  }
+
+  // Fuel — exclude tyreAge=0 (out laps have inflated fuel)
+  const fuelVals = laps.filter(l => l.fuel > 0 && l.tyreAge > 0).map(l => l.fuel);
+  run.avgFuelPerLap = fuelVals.length > 0 ? +(fuelVals.reduce((a, b) => a + b, 0) / fuelVals.length).toFixed(2) : 0;
+  run.maxFuelPerLap = fuelVals.length > 0 ? +Math.max(...fuelVals).toFixed(2) : 0;
+
+  // Degradation on valid tyreAge>0 laps
+  const degLaps = laps.filter(l => l.valid && l.lapTimeMs > 0 && l.tyreAge > 0);
+  const deltas = [];
+  for (let i = 1; i < degLaps.length; i++) {
+    deltas.push(degLaps[i].lapTimeMs - degLaps[i - 1].lapTimeMs);
+  }
+  run.avgDegradationMs = deltas.length > 0 ? Math.round(deltas.reduce((a, b) => a + b, 0) / deltas.length) : 0;
+  run.maxDegradationMs = deltas.length > 0 ? Math.max(...deltas) : 0;
+}
+
+app.post('/api/practice/:track/runs/:runId/split', (req, res) => {
+  const wb = loadPracticeWorkbook(req.params.track);
+  const idx = wb.runs.findIndex(r => r.id === req.params.runId);
+  if (idx < 0) return res.status(404).json({ error: 'Run not found' });
+  const run = wb.runs[idx];
+  const atLap = parseInt(req.body?.atLap, 10);
+  if (!Number.isFinite(atLap)) return res.status(400).json({ error: 'atLap required' });
+
+  const before = (run.laps || []).filter(l => l.lapNum < atLap);
+  const after  = (run.laps || []).filter(l => l.lapNum >= atLap);
+  if (before.length === 0 || after.length === 0) {
+    return res.status(400).json({ error: 'Split lap falls outside the run' });
+  }
+
+  const baseLabel = run.label || run.compound || 'STINT';
+  const partA = { ...run, id: `${run.id}_a`, label: `${baseLabel} (1)`, laps: before };
+  const partB = { ...run, id: `${run.id}_b`, label: `${baseLabel} (2)`, laps: after };
+  recomputeRunAggregates(partA);
+  recomputeRunAggregates(partB);
+
+  wb.runs.splice(idx, 1, partA, partB);
+  savePracticeWorkbook(wb);
+  res.json(wb);
+});
+
+app.post('/api/practice/:track/runs/:runId/merge', (req, res) => {
+  const wb = loadPracticeWorkbook(req.params.track);
+  const primary = wb.runs.find(r => r.id === req.params.runId);
+  const otherId = req.body?.withRunId;
+  const other = wb.runs.find(r => r.id === otherId);
+  if (!primary || !other) return res.status(404).json({ error: 'Run(s) not found' });
+  if (primary.id === other.id) return res.status(400).json({ error: 'Cannot merge a run with itself' });
+
+  // Merge: keep primary's id, compound, setup, etc. Concatenate laps
+  // (sorted by lapNum), concatenate lapIndices.
+  const mergedLaps = [...(primary.laps || []), ...(other.laps || [])]
+    .sort((a, b) => a.lapNum - b.lapNum);
+  const mergedIndices = [...(primary.lapIndices || []), ...(other.lapIndices || [])]
+    .sort((a, b) => a - b);
+  primary.laps = mergedLaps;
+  primary.lapIndices = mergedIndices;
+  primary.label = `${primary.label || primary.compound} + ${other.label || other.compound}`;
+  recomputeRunAggregates(primary);
+
+  wb.runs = wb.runs.filter(r => r.id !== other.id);
+  savePracticeWorkbook(wb);
+  res.json(wb);
+});
+
+// Update a lap's metadata (flag / notes / valid). The workbook is the source
+// of truth for these — the downstream session JSON is untouched. We re-compute
+// the traffic-lap best-lap roll-up if the valid flag changed.
+app.patch('/api/practice/:track/runs/:runId/laps/:lapNum', (req, res) => {
+  const wb = loadPracticeWorkbook(req.params.track);
+  const run = wb.runs.find(r => r.id === req.params.runId);
+  if (!run || !run.laps) return res.status(404).json({ error: 'Run not found' });
+  const lapNum = parseInt(req.params.lapNum, 10);
+  const lap = run.laps.find(l => l.lapNum === lapNum);
+  if (!lap) return res.status(404).json({ error: 'Lap not found' });
+
+  const { flag, notes, valid } = req.body || {};
+  if (flag !== undefined) lap.flag = flag || null;
+  if (notes !== undefined) lap.notes = String(notes || '').slice(0, 500);
+  if (valid !== undefined) lap.valid = !!valid;
+
+  // Recompute headline stats if the valid flag moved, so the sidebar "BEST"
+  // stays in sync with manually-invalidated laps.
+  if (valid !== undefined) {
+    const cleanLaps = run.laps.filter(l => l.valid && !l.trafficLap && l.lapTimeMs > 0);
+    if (cleanLaps.length > 0) {
+      const times = cleanLaps.map(l => l.lapTimeMs);
+      run.bestLapMs = Math.min(...times);
+      run.avgLapMs = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+      run.validLapCount = cleanLaps.length;
+    }
+  }
+
+  savePracticeWorkbook(wb);
+  res.json(run);
+});
+
+// Export a single run as CSV (one row per lap) or JSON (full run record).
+// Query: ?format=csv (default) | json
+app.get('/api/practice/:track/runs/:runId/export', (req, res) => {
+  const wb = loadPracticeWorkbook(req.params.track);
+  const run = wb.runs.find(r => r.id === req.params.runId);
+  if (!run) return res.status(404).json({ error: 'Run not found' });
+
+  const format = (req.query.format || 'csv').toString().toLowerCase();
+  const safeName = (run.label || run.compound || 'stint').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `${req.params.track.replace(/[^a-zA-Z0-9_-]/g, '_')}_${safeName}_${run.id.slice(0, 8)}.${format}`;
+
+  if (format === 'json') {
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.send(JSON.stringify(run, null, 2));
+  }
+
+  // CSV — one row per lap. Columns are flattened so the file opens cleanly in
+  // MoTeC i2, Excel, numbers, etc.
+  const header = [
+    'lapNum', 'lapTimeMs', 's1Ms', 's2Ms', 's3Ms',
+    'maxSpeed', 'avgThrottle', 'avgBrake', 'tyreAge',
+    'fuel', 'valid', 'isOutLap', 'isPitLap', 'trafficLap', 'flag',
+    'tyreWear_RL', 'tyreWear_RR', 'tyreWear_FL', 'tyreWear_FR',
+    'surfTemp_RL', 'surfTemp_RR', 'surfTemp_FL', 'surfTemp_FR',
+    'innerTemp_RL', 'innerTemp_RR', 'innerTemp_FL', 'innerTemp_FR',
+    'engineTemp', 'notes',
+  ];
+  const rows = [header.join(',')];
+  for (const l of (run.laps || [])) {
+    const row = [
+      l.lapNum, l.lapTimeMs, l.s1Ms, l.s2Ms, l.s3Ms,
+      l.maxSpeed, l.avgThrottle, l.avgBrake, l.tyreAge,
+      l.fuel, l.valid, !!l.isOutLap, !!l.isPitLap, !!l.trafficLap, l.flag || '',
+      ...(l.tyreWear || [0, 0, 0, 0]),
+      ...(l.avgSurfaceTemp || [0, 0, 0, 0]),
+      ...(l.avgInnerTemp || [0, 0, 0, 0]),
+      l.avgEngineTemp || 0,
+      // Notes quoting: wrap in "" and escape embedded quotes
+      `"${(l.notes || '').replace(/"/g, '""')}"`,
+    ];
+    rows.push(row.join(','));
+  }
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(rows.join('\n'));
+});
+
 // Auto-extract practice runs from a recording session
 app.post('/api/practice/extract/:sessionId', (req, res) => {
   try {
@@ -518,6 +733,19 @@ function extractPracticeRuns(session) {
         avgThrottle: 0,
         avgBrake: 0,
         consistency: 0,
+        avgFuelPerLap: 0,
+        maxFuelPerLap: 0,
+        avgDegradationMs: 0,
+        maxDegradationMs: 0,
+        tyreWearEnd: [0, 0, 0, 0],
+        avgTyreWear: 0,
+        maxTyreWear: 0,
+        avgEngineTemp: 0,
+        maxEngineTemp: 0,
+        avgTyreSurfaceTemp: [0, 0, 0, 0],
+        avgTyreInnerTemp: [0, 0, 0, 0],
+        maxTyreSurfaceTemp: [0, 0, 0, 0],
+        maxTyreInnerTemp: [0, 0, 0, 0],
         lapIndices: [],
       };
 
@@ -541,6 +769,123 @@ function extractPracticeRuns(session) {
   return runs;
 }
 
+// Extract per-lap telemetry stats from frame data
+function computeLapFrameStats(lap, session) {
+  const noFrames = !session.frames || session.frames.length === 0;
+  const startIdx = lap.startFrameIdx;
+  const endIdx = lap.endFrameIdx;
+  const hasRange = startIdx != null && endIdx != null &&
+    startIdx < (session.frames?.length || 0) && endIdx < (session.frames?.length || 0);
+
+  const result = {
+    fuel: 0,
+    tyreWear: [0, 0, 0, 0],
+    avgSurfaceTemp: [0, 0, 0, 0],
+    avgInnerTemp: [0, 0, 0, 0],
+    avgBrakeTemp: [0, 0, 0, 0],
+    avgPressure: [0, 0, 0, 0],
+    avgEngineTemp: 0,
+    avgBatteryPct: 0,
+    ersHarvestedMJ: 0,
+    ersDeployedMJ: 0,
+  };
+
+  if (noFrames || !hasRange) return result;
+
+  // Find the real lap-start frame by walking forward until we see the
+  // `currentLapTimeInMS` (frame.t) reset to near-zero. This strips out
+  // warmup / Time-Trial "Start Flying Lap" teleport frames that would
+  // otherwise inflate lap 1's fuel delta.
+  let realStartIdx = startIdx;
+  let prevT = session.frames[startIdx]?.t ?? 0;
+  for (let i = startIdx + 1; i <= endIdx; i++) {
+    const t = session.frames[i]?.t ?? 0;
+    if (t < 500 && prevT > 2000) {
+      realStartIdx = i;
+    }
+    prevT = t;
+  }
+
+  // Fuel: consumed = start - end (start = first frame AFTER timer reset)
+  const startFuel = session.frames[realStartIdx]?.fl ?? 0;
+  const endFuel = session.frames[endIdx]?.fl ?? 0;
+  const consumed = startFuel - endFuel;
+  result.fuel = consumed > 0 ? +consumed.toFixed(2) : 0;
+
+  // Tyre wear at lap end
+  const endFrame = session.frames[endIdx];
+  if (endFrame?.tw) {
+    result.tyreWear = endFrame.tw.map(v => +((v || 0)).toFixed(1));
+  }
+
+  // Average temps / pressures across lap frames (scan from realStartIdx so
+  // warmup frames before the timer reset don't skew these either).
+  let frameCount = 0;
+  const sumSurface = [0, 0, 0, 0];
+  const sumInner = [0, 0, 0, 0];
+  const sumBrake = [0, 0, 0, 0];
+  const sumPressure = [0, 0, 0, 0];
+  let brakeFrames = 0;
+  let pressureFrames = 0;
+  let sumEngine = 0;
+  let sumBattery = 0;
+  let batteryFrames = 0;
+  let maxHarvest = 0;
+  let maxDeploy = 0;
+
+  for (let i = realStartIdx; i <= endIdx; i++) {
+    const f = session.frames[i];
+    if (!f) continue;
+    frameCount++;
+    if (f.ts) for (let w = 0; w < 4; w++) sumSurface[w] += (f.ts[w] || 0);
+    if (f.ti) for (let w = 0; w < 4; w++) sumInner[w] += (f.ti[w] || 0);
+    if (f.bt) {
+      brakeFrames++;
+      for (let w = 0; w < 4; w++) sumBrake[w] += (f.bt[w] || 0);
+    }
+    if (f.tp) {
+      pressureFrames++;
+      for (let w = 0; w < 4; w++) sumPressure[w] += (f.tp[w] || 0);
+    }
+    sumEngine += (f.et || 0);
+    if (f.er != null) {
+      sumBattery += f.er;
+      batteryFrames++;
+    }
+    // eh / ep are "this lap" totals that grow through the lap — take the max
+    // rather than trusting the endIdx frame alone (late interval decimation
+    // can leave the final frame slightly below peak).
+    if (f.eh != null && f.eh > maxHarvest) maxHarvest = f.eh;
+    if (f.ep != null && f.ep > maxDeploy) maxDeploy = f.ep;
+  }
+
+  if (frameCount > 0) {
+    for (let w = 0; w < 4; w++) {
+      result.avgSurfaceTemp[w] = Math.round(sumSurface[w] / frameCount);
+      result.avgInnerTemp[w] = Math.round(sumInner[w] / frameCount);
+    }
+    result.avgEngineTemp = Math.round(sumEngine / frameCount);
+  }
+  if (brakeFrames > 0) {
+    for (let w = 0; w < 4; w++) {
+      result.avgBrakeTemp[w] = Math.round(sumBrake[w] / brakeFrames);
+    }
+  }
+  if (pressureFrames > 0) {
+    for (let w = 0; w < 4; w++) {
+      result.avgPressure[w] = +((sumPressure[w] / pressureFrames)).toFixed(2);
+    }
+  }
+  if (batteryFrames > 0) {
+    result.avgBatteryPct = Math.round(sumBattery / batteryFrames);
+  }
+  // eh/ep are Joules; convert to MJ for display convenience.
+  result.ersHarvestedMJ = +(maxHarvest / 1_000_000).toFixed(2);
+  result.ersDeployedMJ = +(maxDeploy / 1_000_000).toFixed(2);
+
+  return result;
+}
+
 function finalizeRun(run, laps, session) {
   const runLaps = run.lapIndices.map(i => laps[i]);
   const validLaps = runLaps.filter(l => l.valid !== false && l.lapTimeMs > 0);
@@ -548,29 +893,107 @@ function finalizeRun(run, laps, session) {
   run.lapCount = run.lapIndices.length;
   run.validLapCount = validLaps.length;
 
-  // Embed individual lap details for frontend display
-  run.laps = runLaps.map(l => ({
-    lapNum: l.lapNum,
-    lapTimeMs: l.lapTimeMs || 0,
-    s1Ms: l.s1Ms || 0,
-    s2Ms: l.s2Ms || 0,
-    s3Ms: l.s3Ms || 0,
-    maxSpeed: l.maxSpeed || 0,
-    avgThrottle: l.avgThrottle || 0,
-    avgBrake: l.avgBrake || 0,
-    tyreAge: l.tyreAge || 0,
-    valid: l.valid !== false,
-    isOutLap: l.isOutLap || false,
-  }));
+  // Embed individual lap details with telemetry stats from frames
+  run.laps = runLaps.map(l => {
+    const stats = computeLapFrameStats(l, session);
+    return {
+      lapNum: l.lapNum,
+      lapTimeMs: l.lapTimeMs || 0,
+      s1Ms: l.s1Ms || 0,
+      s2Ms: l.s2Ms || 0,
+      s3Ms: l.s3Ms || 0,
+      maxSpeed: l.maxSpeed || 0,
+      avgThrottle: l.avgThrottle || 0,
+      avgBrake: l.avgBrake || 0,
+      tyreAge: l.tyreAge || 0,
+      fuel: stats.fuel,
+      tyreWear: stats.tyreWear,
+      avgSurfaceTemp: stats.avgSurfaceTemp,
+      avgInnerTemp: stats.avgInnerTemp,
+      avgBrakeTemp: stats.avgBrakeTemp,
+      avgPressure: stats.avgPressure,
+      avgEngineTemp: stats.avgEngineTemp,
+      avgBatteryPct: stats.avgBatteryPct,
+      ersHarvestedMJ: stats.ersHarvestedMJ,
+      ersDeployedMJ: stats.ersDeployedMJ,
+      valid: l.valid !== false,
+      isOutLap: l.isOutLap || false,
+      isPitLap: l.isPitLap || false,
+      trackTemp: l.trackTemp != null ? l.trackTemp : null,
+      airTemp:   l.airTemp   != null ? l.airTemp   : null,
+      weather:   l.weather   || null,
+      // trafficLap is filled in below once we have the stint-wide medians
+      trafficLap: false,
+      // Preserve any user-set per-lap metadata (notes, flag overrides) so the
+      // frontend can round-trip these without losing them.
+      notes: l.notes || '',
+      flag: l.flag || null,
+    };
+  });
 
-  if (validLaps.length > 0) {
-    const times = validLaps.map(l => l.lapTimeMs);
+  // ── Traffic-lap heuristic ──────────────────────────────────────────────────
+  // A lap is flagged as "traffic" if its lap time, max speed, or S3 time falls
+  // significantly outside the stint-wide median. Robust median absolute
+  // deviation (MAD) — less sensitive to the very outliers we're trying to
+  // catch than a mean/stddev pair would be.
+  //
+  // Threshold: 2.5 × MAD (≈ 1.7σ for normally-distributed data). Lap must
+  // have at least one of (lapTimeMs, maxSpeed, s3Ms) exceeding the threshold
+  // to be marked.
+  //
+  // Outlaps, pit laps, and already-invalid laps are exempt (they are slow
+  // for legitimate reasons, not traffic).
+  if (validLaps.length >= 4) {
+    const median = (xs) => {
+      const s = [...xs].sort((a, b) => a - b);
+      const m = Math.floor(s.length / 2);
+      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+    };
+    const mad = (xs, m) => median(xs.map((x) => Math.abs(x - m)));
+
+    const lapTimes  = validLaps.map((l) => l.lapTimeMs);
+    const maxSpeeds = validLaps.map((l) => l.maxSpeed || 0).filter((v) => v > 0);
+    const s3Times   = validLaps.map((l) => l.s3Ms || 0).filter((v) => v > 0);
+
+    const lapTimeMed = median(lapTimes);
+    const lapTimeMad = mad(lapTimes, lapTimeMed);
+    const maxSpeedMed = maxSpeeds.length ? median(maxSpeeds) : 0;
+    const maxSpeedMad = maxSpeeds.length ? mad(maxSpeeds, maxSpeedMed) : 0;
+    const s3Med = s3Times.length ? median(s3Times) : 0;
+    const s3Mad = s3Times.length ? mad(s3Times, s3Med) : 0;
+
+    const K = 2.5;
+    for (const rl of run.laps) {
+      if (!rl.valid || rl.isOutLap || rl.isPitLap) continue;
+      // Respect user-set flag: if a human already classified, leave it.
+      if (rl.flag === 'clean' || rl.flag === 'mistake' || rl.flag === 'reference') continue;
+
+      const slowLap  = lapTimeMad > 0 && rl.lapTimeMs > lapTimeMed + K * lapTimeMad;
+      const slowTrap = maxSpeedMad > 0 && rl.maxSpeed > 0 && rl.maxSpeed < maxSpeedMed - K * maxSpeedMad;
+      const slowS3   = s3Mad > 0 && rl.s3Ms > 0 && rl.s3Ms > s3Med + K * s3Mad;
+
+      if (slowLap || slowTrap || slowS3) {
+        rl.trafficLap = true;
+        if (!rl.flag) rl.flag = 'traffic';
+      }
+    }
+  }
+
+  // Clean laps = valid && not traffic-flagged (auto or manual). Used for
+  // best/avg lap rollups so one DRS-follow or backing-off lap doesn't poison
+  // the stint's headline stats.
+  const cleanRunLaps = run.laps.filter(l => l.valid && !l.trafficLap && l.lapTimeMs > 0);
+  // Fall back to validLaps if traffic-filtering wiped everything (tiny stint)
+  const rollupLaps = cleanRunLaps.length > 0 ? cleanRunLaps : run.laps.filter(l => l.valid && l.lapTimeMs > 0);
+
+  if (rollupLaps.length > 0) {
+    const times = rollupLaps.map(l => l.lapTimeMs);
     run.bestLapMs = Math.min(...times);
     run.avgLapMs = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
 
-    run.bestS1Ms = Math.min(...validLaps.filter(l => l.s1Ms > 0).map(l => l.s1Ms)) || 0;
-    run.bestS2Ms = Math.min(...validLaps.filter(l => l.s2Ms > 0).map(l => l.s2Ms)) || 0;
-    run.bestS3Ms = Math.min(...validLaps.filter(l => l.s3Ms > 0).map(l => l.s3Ms)) || 0;
+    run.bestS1Ms = Math.min(...rollupLaps.filter(l => l.s1Ms > 0).map(l => l.s1Ms)) || 0;
+    run.bestS2Ms = Math.min(...rollupLaps.filter(l => l.s2Ms > 0).map(l => l.s2Ms)) || 0;
+    run.bestS3Ms = Math.min(...rollupLaps.filter(l => l.s3Ms > 0).map(l => l.s3Ms)) || 0;
   } else {
     run.bestLapMs = 0;
     run.avgLapMs = 0;
@@ -589,6 +1012,65 @@ function finalizeRun(run, laps, session) {
     run.consistency = Math.round(Math.max(0, Math.min(100, 100 - cv * 10)));
   } else {
     run.consistency = 0;
+  }
+
+  // Fuel metrics (kg per lap) — exclude tyreAge=0 laps (first lap of stint has
+  // inflated fuel from teleport/pit-to-track, not representative of actual lap burn)
+  const fuelValues = run.laps.filter(l => l.fuel > 0 && l.tyreAge > 0).map(l => l.fuel);
+  run.avgFuelPerLap = fuelValues.length > 0
+    ? +(fuelValues.reduce((a, b) => a + b, 0) / fuelValues.length).toFixed(2)
+    : 0;
+  run.maxFuelPerLap = fuelValues.length > 0
+    ? +Math.max(...fuelValues).toFixed(2)
+    : 0;
+
+  // Tyre degradation (ms lost per consecutive lap) — exclude tyreAge=0
+  const validRunLaps = run.laps.filter(l => l.valid && l.lapTimeMs > 0 && l.tyreAge > 0);
+  const degradations = [];
+  for (let i = 1; i < validRunLaps.length; i++) {
+    degradations.push(validRunLaps[i].lapTimeMs - validRunLaps[i - 1].lapTimeMs);
+  }
+  run.avgDegradationMs = degradations.length > 0
+    ? Math.round(degradations.reduce((a, b) => a + b, 0) / degradations.length)
+    : 0;
+  run.maxDegradationMs = degradations.length > 0
+    ? Math.max(...degradations)
+    : 0;
+
+  // Tyre wear at end of stint (last lap's wear values)
+  const lastLapWithWear = [...run.laps].reverse().find(l => l.tyreWear && l.tyreWear.some(v => v > 0));
+  if (lastLapWithWear) {
+    run.tyreWearEnd = lastLapWithWear.tyreWear;
+    const wearVals = lastLapWithWear.tyreWear.filter(v => v > 0);
+    run.avgTyreWear = wearVals.length > 0 ? +(wearVals.reduce((a, b) => a + b, 0) / wearVals.length).toFixed(1) : 0;
+    run.maxTyreWear = wearVals.length > 0 ? +Math.max(...wearVals).toFixed(1) : 0;
+  } else {
+    run.tyreWearEnd = [0, 0, 0, 0];
+    run.avgTyreWear = 0;
+    run.maxTyreWear = 0;
+  }
+
+  // Engine temperature aggregates
+  const engineTemps = run.laps.filter(l => l.avgEngineTemp > 0).map(l => l.avgEngineTemp);
+  run.avgEngineTemp = engineTemps.length > 0 ? Math.round(engineTemps.reduce((a, b) => a + b, 0) / engineTemps.length) : 0;
+  run.maxEngineTemp = engineTemps.length > 0 ? Math.max(...engineTemps) : 0;
+
+  // Tyre temperature aggregates (average and max across all laps, per wheel)
+  run.avgTyreSurfaceTemp = [0, 0, 0, 0];
+  run.avgTyreInnerTemp = [0, 0, 0, 0];
+  run.maxTyreSurfaceTemp = [0, 0, 0, 0];
+  run.maxTyreInnerTemp = [0, 0, 0, 0];
+
+  const tempLaps = run.laps.filter(l => l.avgSurfaceTemp && l.avgSurfaceTemp.some(v => v > 0));
+  if (tempLaps.length > 0) {
+    for (let w = 0; w < 4; w++) {
+      const surfVals = tempLaps.map(l => l.avgSurfaceTemp[w]).filter(v => v > 0);
+      const innerVals = tempLaps.map(l => l.avgInnerTemp[w]).filter(v => v > 0);
+      run.avgTyreSurfaceTemp[w] = surfVals.length > 0 ? Math.round(surfVals.reduce((a, b) => a + b, 0) / surfVals.length) : 0;
+      run.avgTyreInnerTemp[w] = innerVals.length > 0 ? Math.round(innerVals.reduce((a, b) => a + b, 0) / innerVals.length) : 0;
+      run.maxTyreSurfaceTemp[w] = surfVals.length > 0 ? Math.max(...surfVals) : 0;
+      run.maxTyreInnerTemp[w] = innerVals.length > 0 ? Math.max(...innerVals) : 0;
+    }
   }
 }
 
@@ -840,11 +1322,65 @@ udp.on('message', msg => {
       break;
 
     case PACKET_IDS.FINAL_CLASSIFICATION:
-      // Race/session ended — auto-save recording immediately
+      state.finalClassification = packet.data;
+      broadcast('finalClassification', packet.data);
+
+      // Race/session ended — persist classification before stopping recording
       if (recorder.getStatus().isRecording) {
         console.log('[Session] Final classification received — auto-saving recording');
+        recorder.setFinalClassification(packet.data);
         recorder.stop();
         broadcast('recStatus', recorder.getStatus());
+      }
+      break;
+
+    case PACKET_IDS.EVENT:
+      // Always forward events (SSTA, FTLP, PENA, OVTK, ...)
+      broadcast('event', packet.data);
+      if (recorder.getStatus().isRecording) {
+        recorder.recordEvent(packet.data, packet.header);
+      }
+      break;
+
+    case PACKET_IDS.LOBBY_INFO:
+      state.lobbyInfo = packet.data;
+      broadcast('lobbyInfo', packet.data);
+      if (recorder.getStatus().isRecording) {
+        recorder.setLobbyInfo(packet.data);
+      }
+      break;
+
+    case PACKET_IDS.TYRE_SETS:
+      if (packet.data) {
+        state.tyreSets[packet.data.carIdx] = packet.data;
+        broadcast('tyreSets', packet.data);
+        if (recorder.getStatus().isRecording) {
+          recorder.setTyreSets(packet.data);
+        }
+      }
+      break;
+
+    case PACKET_IDS.MOTION_EX:
+      state.motionEx = packet.data;
+      broadcast('motionEx', packet.data);
+      if (recorder.getStatus().isRecording && cfg.recording?.captureFrames) {
+        recorder.addMotionExFrame(packet.data);
+      }
+      break;
+
+    case PACKET_IDS.TIME_TRIAL:
+      state.timeTrial = packet.data;
+      broadcast('timeTrial', packet.data);
+      if (recorder.getStatus().isRecording) {
+        recorder.setTimeTrial(packet.data);
+      }
+      break;
+
+    case PACKET_IDS.LAP_POSITIONS:
+      state.lapPositions = packet.data;
+      broadcast('lapPositions', packet.data);
+      if (recorder.getStatus().isRecording) {
+        recorder.setLapPositions(packet.data);
       }
       break;
   }

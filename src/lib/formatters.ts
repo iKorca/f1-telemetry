@@ -86,3 +86,68 @@ export function fmtGap(ms: number): string {
   const s = ((ms % 60000) / 1000).toFixed(3);
   return m + ':' + (Number(s) < 10 ? '0' : '') + s;
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Chart-axis tick formatters — plug directly into uPlot's `axes[].values`.
+//  Each takes (u, ticks, axisIdx, foundSpace, foundIncr) and returns string[].
+//  Keep them lightweight — uPlot calls on every pan/zoom frame.
+// ────────────────────────────────────────────────────────────────────────────
+
+export const fmtLapTimeTick = (_u: unknown, ticks: number[]): Array<string | null> =>
+  ticks.map((t) => {
+    if (t == null || !Number.isFinite(t)) return null;
+    const ms = Math.round(t * 1000);
+    return fmtTime(ms);
+  });
+
+export const fmtFuelTick = (_u: unknown, ticks: number[]): Array<string | null> =>
+  ticks.map((t) => (t == null || !Number.isFinite(t) ? null : `${t.toFixed(2)} kg`));
+
+export const fmtDistanceTick = (_u: unknown, ticks: number[]): Array<string | null> =>
+  ticks.map((t) => {
+    if (t == null || !Number.isFinite(t)) return null;
+    if (Math.abs(t) >= 1000) return `${(t / 1000).toFixed(2)} km`;
+    return `${Math.round(t)} m`;
+  });
+
+export const fmtTempTick = (_u: unknown, ticks: number[]): Array<string | null> =>
+  ticks.map((t) => (t == null || !Number.isFinite(t) ? null : `${Math.round(t)}°C`));
+
+export const fmtPctTick = (_u: unknown, ticks: number[]): Array<string | null> =>
+  ticks.map((t) => (t == null || !Number.isFinite(t) ? null : `${Math.round(t)}%`));
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Series value formatters — plug into uPlot's `series[].value`.
+//  Keep gap rendering consistent ("—" rather than raw `null`).
+// ────────────────────────────────────────────────────────────────────────────
+
+const EM_DASH = '\u2014';
+
+export const valLapTime = (_u: unknown, v: number | null): string =>
+  v == null ? EM_DASH : fmtTime(Math.round(v * 1000));
+
+export const valFuel = (_u: unknown, v: number | null): string =>
+  v == null ? EM_DASH : `${v.toFixed(2)} kg`;
+
+export const valDistance = (_u: unknown, v: number | null): string => {
+  if (v == null) return EM_DASH;
+  return Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(2)} km` : `${Math.round(v)} m`;
+};
+
+export const valTemp = (_u: unknown, v: number | null): string =>
+  v == null ? EM_DASH : `${Math.round(v)}°C`;
+
+export const valPct = (_u: unknown, v: number | null): string =>
+  v == null ? EM_DASH : `${v.toFixed(1)}%`;
+
+export const valSpeed = (_u: unknown, v: number | null): string =>
+  v == null ? EM_DASH : `${Math.round(v)} km/h`;
+
+export const valEnergy = (_u: unknown, v: number | null): string =>
+  v == null ? EM_DASH : `${v.toFixed(2)} MJ`;
+
+export const valMs = (_u: unknown, v: number | null): string =>
+  v == null ? EM_DASH : `${v >= 0 ? '+' : ''}${v.toFixed(0)} ms`;
+
+export const valDeltaSec = (_u: unknown, v: number | null): string =>
+  v == null ? EM_DASH : `${v >= 0 ? '+' : ''}${(v / 1000).toFixed(3)} s`;

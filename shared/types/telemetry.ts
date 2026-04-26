@@ -15,6 +15,7 @@ export interface CarTelemetry {
   engineTemperature: number;
   tyresPressure: [number, number, number, number];
   surfaceType: [number, number, number, number];
+  surfaceTypeNames: [string, string, string, string];
 }
 
 export interface TelemetryData {
@@ -30,12 +31,47 @@ export interface MotionData {
   worldVelocityX: number;
   worldVelocityY: number;
   worldVelocityZ: number;
+  worldForwardDirX: number;
+  worldForwardDirY: number;
+  worldForwardDirZ: number;
+  worldRightDirX: number;
+  worldRightDirY: number;
+  worldRightDirZ: number;
   gForceLateral: number;
   gForceLongitudinal: number;
   gForceVertical: number;
   yaw: number;
   pitch: number;
   roll: number;
+}
+
+export interface MotionExData {
+  suspensionPosition: [number, number, number, number];
+  suspensionVelocity: [number, number, number, number];
+  suspensionAcceleration: [number, number, number, number];
+  wheelSpeed: [number, number, number, number];
+  wheelSlipRatio: [number, number, number, number];
+  wheelSlipAngle: [number, number, number, number];
+  wheelLatForce: [number, number, number, number];
+  wheelLongForce: [number, number, number, number];
+  heightOfCOGAboveGround: number;
+  localVelocityX: number;
+  localVelocityY: number;
+  localVelocityZ: number;
+  angularVelocityX: number;
+  angularVelocityY: number;
+  angularVelocityZ: number;
+  angularAccelerationX: number;
+  angularAccelerationY: number;
+  angularAccelerationZ: number;
+  frontWheelsAngle: number;
+  wheelVertForce: [number, number, number, number];
+  frontAeroHeight: number;
+  rearAeroHeight: number;
+  frontRollAngle: number;
+  rearRollAngle: number;
+  chassisYaw: number;
+  chassisPitch: number;
 }
 
 export interface MotionPacket {
@@ -68,6 +104,13 @@ export interface LapData {
   pitLaneTimeInLaneInMS: number;
   pitStopTimerInMS: number;
   pitStopShouldServePen: number;
+  numUnservedDriveThroughPens: number;
+  numUnservedStopGoPens: number;
+  speedTrapFastestSpeed: number;
+  speedTrapFastestLap: number;
+  driverStatusName: string;
+  resultStatusName: string;
+  pitStatusName: string;
 }
 
 export interface LapDataPacket {
@@ -93,11 +136,14 @@ export interface CarStatus {
   visualTyreCompound: number;
   tyresAgeLaps: number;
   vehicleFiaFlags: number;
+  enginePowerICE: number;
+  enginePowerMGUK: number;
   ersStoreEnergy: number;
   ersDeployMode: number;
   ersHarvestedThisLapMGUK: number;
   ersHarvestedThisLapMGUH: number;
   ersDeployedThisLap: number;
+  networkPaused: number;
   tyreCompoundName: string;
   ersDeployModeName: string;
 }
@@ -151,6 +197,14 @@ export interface CarDamage {
   ersFault: number;
   gearBoxDamage: number;
   engineDamage: number;
+  engineMGUHWear: number;
+  engineESWear: number;
+  engineCEWear: number;
+  engineICEWear: number;
+  engineMGUKWear: number;
+  engineTCWear: number;
+  engineBlown: number;
+  engineSeized: number;
 }
 
 export interface CarDamageData {

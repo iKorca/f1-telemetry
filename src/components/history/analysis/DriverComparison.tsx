@@ -61,6 +61,8 @@ function DriverComparison({ session }: DriverComparisonProps) {
     return {
       title: `${pA.name || 'A'} vs ${pB.name || 'B'} (cumulative delta)`,
       data: [xData, deltaData] as uPlot.AlignedData,
+      aName: pA.name || 'A',
+      bName: pB.name || 'B',
     };
   }, [rd, driverA, driverB]);
 
@@ -82,8 +84,14 @@ function DriverComparison({ session }: DriverComparisonProps) {
     return null;
   }
 
+  // Title is rendered as a React heading (below) instead of as a uPlot
+  // option, because uPlot's title is baked in at chart creation — setData()
+  // can't hot-swap it. Series label includes the driver names so the
+  // uPlot legend reflects the current selection.
+  const seriesLabel = chartData
+    ? `${chartData.aName} − ${chartData.bName}`
+    : 'Delta';
   const options: Partial<uPlot.Options> = {
-    title: chartData?.title || '',
     scales: { x: { time: false } },
     axes: [
       { label: 'Lap', stroke: '#888', grid: { stroke: '#333' } },
@@ -97,7 +105,7 @@ function DriverComparison({ session }: DriverComparisonProps) {
           ),
       },
     ],
-    series: [{}, { label: 'Delta', stroke: '#f0f0f0', width: 2 }],
+    series: [{}, { label: seriesLabel, stroke: '#f0f0f0', width: 2 }],
   };
 
   return (
@@ -130,6 +138,18 @@ function DriverComparison({ session }: DriverComparisonProps) {
       </div>
       {chartData && (
         <div className={styles.chartBox}>
+          <div
+            style={{
+              fontFamily: 'var(--font-d)',
+              fontSize: '0.6rem',
+              letterSpacing: '0.05em',
+              color: 'var(--white)',
+              textAlign: 'center',
+              marginBottom: '0.3rem',
+            }}
+          >
+            {chartData.title}
+          </div>
           <UPlotChart
             options={options}
             data={chartData.data}

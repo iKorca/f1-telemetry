@@ -266,7 +266,7 @@ function ChartSection({
   };
 
   return (
-    <div className={styles.section}>
+    <div className={styles.section} data-chart-section>
       <div className={styles.header}>
         <span className="section-label">TELEMETRY CHARTS</span>
         <select

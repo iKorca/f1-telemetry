@@ -4,6 +4,14 @@ const fs   = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
+// Soft cap on per-session frame buffer so a multi-hour session doesn't balloon
+// memory unchecked. 1h at 20 Hz ≈ 72k frames × ~260 bytes ≈ 18 MB. We keep
+// 200k which is ~3h and trim the oldest quarter when we overflow — lap
+// indices are adjusted in parallel so existing laps still point at the right
+// frames.
+const FRAME_CAP = 200_000;
+const FRAME_TRIM = 50_000;
+
 const VISUAL_TYRE = {
   16: 'SOFT', 17: 'MEDIUM', 18: 'HARD', 7: 'INTER', 8: 'WET',
 };
@@ -43,6 +51,7 @@ class Recorder {
     this._prevLastLapMs = 0;
     this._prevTyreAge   = 0;
     this._prevCompound  = null;
+    this._prevLapTimeMs = null; // currentLapTimeInMS — for timer-reset detection
 
     // Accumulators for the current lap
     this._lapThrottleSum = 0;
@@ -74,18 +83,26 @@ class Recorder {
 
     const id = uuidv4();
     this._session = {
-      version:     2,
+      version:     3,
       id,
       startTime:   Date.now(),
       endTime:     null,
       track:       sessionInfo?.trackName       || 'Unknown',
       sessionType: sessionInfo?.sessionTypeName || 'Unknown',
       weather:     sessionInfo?.weatherName     || 'Unknown',
+      sessionInfo: sessionInfo || null,
       setup:       null,
       lapSetups:   {},
       laps:        [],
       stints:      [],
       frames:      [],
+      motionExFrames: [],
+      events:      [],
+      tyreSets:    {},  // keyed by carIdx
+      timeTrial:   null,
+      lapPositions: null,
+      lobbyInfo:   null,
+      finalClassification: null,
       raceData: {
         participants: [],
         carLaps:   {},
@@ -183,6 +200,10 @@ class Recorder {
       this._session.sessionType = sessionInfo.sessionTypeName;
     if (sessionInfo.weatherName && sessionInfo.weatherName !== 'Unknown')
       this._session.weather = sessionInfo.weatherName;
+
+    // Keep the latest full session snapshot so assists, game mode, rule set,
+    // weather forecast, marshal zones, safety-car counters etc. are all saved.
+    this._session.sessionInfo = sessionInfo;
   }
 
   // ── Overwrite lap data from authoritative SessionHistory packet ────────────
@@ -349,6 +370,20 @@ class Recorder {
         this._lastLapNum = lapNum;
         this._currentLap = lapNum;
 
+        // Timer-reset detection: Time-Trial "Start Flying Lap" teleports the
+        // car with a fresh tank while the lap number stays the same; the only
+        // reliable signal is currentLapTimeInMS snapping back to ~0. Treat the
+        // next frame we push as the real lap start so fuel/throttle/brake/
+        // max-speed aggregates don't include the warmup burn.
+        if (this._prevLapTimeMs != null &&
+            currLastLapMs === 0 && // no finished lap yet
+            lapData.currentLapTimeInMS < 500 &&
+            this._prevLapTimeMs > 2000) {
+          this._lapStartFrameIdx = this._session.frames.length;
+          this._resetLapAccumulators();
+        }
+        this._prevLapTimeMs = lapData.currentLapTimeInMS;
+
         // Track pit status for out-lap / pit-lap detection
         const pitStatus = lapData.pitStatus || 0;
 
@@ -413,6 +448,7 @@ class Recorder {
     const lapD    = lapData   || {};
     const statD   = carStatus || {};
     const motionD = motion?.playerData || {};
+    const dmgD    = carDamage?.playerData || {};
 
     const throttle = car.throttle || 0;
     const brake    = car.brake    || 0;
@@ -435,18 +471,81 @@ class Recorder {
       g:  car.gear || 0,
       r:  car.engineRPM || 0,
       d:  car.drs || 0,
+      cl: car.clutch || 0,
       st: Math.round((car.steer || 0) * 100),
       ln: lapD.currentLapNum || this._currentLap || 1,
       p:  lapD.carPosition || 0,
       ts: car.tyresSurfaceTemperature || [0, 0, 0, 0],
+      ti: car.tyresInnerTemperature   || [0, 0, 0, 0],
+      bt: car.brakesTemperature       || [0, 0, 0, 0],
+      tp: car.tyresPressure           || [0, 0, 0, 0],
+      sf: car.surfaceType             || [0, 0, 0, 0],
+      et: car.engineTemperature       || 0,
+      tw: dmgD.tyresWear              || [0, 0, 0, 0],
+      td: dmgD.tyresDamage            || [0, 0, 0, 0],
+      bd: dmgD.brakesDamage           || [0, 0, 0, 0],
+      wd: [dmgD.frontLeftWingDamage || 0, dmgD.frontRightWingDamage || 0, dmgD.rearWingDamage || 0],
+      ed: dmgD.engineDamage || 0,
+      gd: dmgD.gearBoxDamage || 0,
+      ew: [
+        dmgD.engineMGUHWear || 0, dmgD.engineESWear || 0, dmgD.engineCEWear || 0,
+        dmgD.engineICEWear || 0, dmgD.engineMGUKWear || 0, dmgD.engineTCWear || 0,
+      ],
       fl: fuel,
+      fm: statD.fuelMix || 0,
+      fr: +(statD.fuelRemainingLaps || 0).toFixed(2),
       er: ersPct,
-      em: statD.ersDeployMode || 0,     // ERS deploy mode: 0=none, 1=medium, 2=hotlap, 3=overtake
-      da: statD.drsAllowed || 0,        // DRS allowed in zone (0/1)
-      gL: +(motionD.gForceLateral     || 0).toFixed(2),
-      gN: +(motionD.gForceLongitudinal || 0).toFixed(2),
+      em: statD.ersDeployMode || 0,
+      eh: +(statD.ersHarvestedThisLapMGUK || 0).toFixed(0),
+      ep: +(statD.ersDeployedThisLap || 0).toFixed(0),
+      da: statD.drsAllowed || 0,
+      dd: statD.drsActivationDistance || 0,
+      fb: statD.frontBrakeBias || 0,
+      ta: statD.tyresAgeLaps || 0,
+      vf: statD.vehicleFiaFlags || 0,
+      pLap: lapD.lapDistance || 0,
+      sec:  lapD.sector || 0,
+      gL:   +(motionD.gForceLateral     || 0).toFixed(2),
+      gN:   +(motionD.gForceLongitudinal || 0).toFixed(2),
+      gV:   +(motionD.gForceVertical    || 0).toFixed(2),
+      yaw:  +(motionD.yaw   || 0).toFixed(3),
+      pit:  +(motionD.pitch || 0).toFixed(3),
+      rol:  +(motionD.roll  || 0).toFixed(3),
+      wpx:  +(motionD.worldPositionX || 0).toFixed(2),
+      wpz:  +(motionD.worldPositionZ || 0).toFixed(2),
     });
     this._frameCount++;
+
+    // Guard against unbounded growth on very long sessions.
+    if (this._session.frames.length > FRAME_CAP) {
+      this._trimFrameBuffer(FRAME_TRIM);
+    }
+  }
+
+  // Drop the oldest `n` frames and shift every lap's startFrameIdx/endFrameIdx
+  // so existing laps keep pointing at the right frames. Laps whose whole frame
+  // range falls inside the dropped region become "frameless" (indices set to
+  // null) — they'll still have lap-time + sector data but per-lap frame stats
+  // won't be recomputable.
+  _trimFrameBuffer(n) {
+    if (!this._session) return;
+    const frames = this._session.frames;
+    if (frames.length <= n) return;
+    const drop = Math.min(n, frames.length);
+    frames.splice(0, drop);
+    for (const lap of this._session.laps) {
+      if (lap.startFrameIdx != null) lap.startFrameIdx -= drop;
+      if (lap.endFrameIdx != null) lap.endFrameIdx -= drop;
+      if (lap.endFrameIdx != null && lap.endFrameIdx < 0) {
+        lap.startFrameIdx = null;
+        lap.endFrameIdx = null;
+      } else if (lap.startFrameIdx != null && lap.startFrameIdx < 0) {
+        lap.startFrameIdx = 0;
+      }
+    }
+    this._lapStartFrameIdx = Math.max(0, this._lapStartFrameIdx - drop);
+    const mu = process.memoryUsage();
+    console.log(`[Recorder] Trimmed ${drop} frames (buffer=${frames.length}). RSS=${(mu.rss / 1024 / 1024).toFixed(1)} MB heapUsed=${(mu.heapUsed / 1024 / 1024).toFixed(1)} MB`);
   }
 
   // ── Lap complete ────────────────────────────────────────────────────────────
@@ -473,6 +572,10 @@ class Recorder {
     const isIncomplete = isOutLap || isPitEntryLap;
     const effectiveValid = isIncomplete ? false : lapValid;
 
+    // Snapshot ambient conditions at lap completion — lets the practice UI
+    // show weather drift alongside lap-time evolution without having to scan
+    // frames (which don't carry track/air temps).
+    const si = this._session.sessionInfo || {};
     const lapEntry = {
       lapNum:        completedLapNum,
       lapTimeMs:     lastLapMs,
@@ -490,6 +593,9 @@ class Recorder {
       setupLapRef:   this._lastSetupLap || null,
       isOutLap:      isOutLap || false,
       isPitLap:      isPitEntryLap || false,
+      trackTemp:     si.trackTemperature != null ? si.trackTemperature : null,
+      airTemp:       si.airTemperature != null ? si.airTemperature : null,
+      weather:       si.weatherName || null,
     };
 
     this._session.laps.push(lapEntry);
@@ -543,6 +649,97 @@ class Recorder {
     this._lapBrakeSum    = 0;
     this._lapFrameCount  = 0;
     this._lapMaxSpeed    = 0;
+  }
+
+  // ── Event packets (SSTA, FTLP, PENA, SPTP, OVTK, SCAR, COLL, ...) ──────────
+
+  recordEvent(eventData, header) {
+    if (!this._isRecording || !this._session || !eventData) return;
+    this._session.events.push({
+      t:        header?.sessionTime ?? 0,
+      frame:    header?.frameIdentifier ?? 0,
+      code:     eventData.eventStringCode,
+      name:     eventData.eventName,
+      details:  eventData.details || {},
+    });
+  }
+
+  // ── Per-car tyre set inventory (packet 12) ──────────────────────────────────
+
+  setTyreSets(tyreSetsData) {
+    if (!this._isRecording || !this._session || !tyreSetsData) return;
+    this._session.tyreSets[tyreSetsData.carIdx] = {
+      fittedIdx: tyreSetsData.fittedIdx,
+      sets:      tyreSetsData.sets,
+      updatedAt: Date.now(),
+    };
+  }
+
+  // ── Time Trial best lap snapshot (packet 14) ────────────────────────────────
+
+  setTimeTrial(timeTrialData) {
+    if (!this._isRecording || !this._session || !timeTrialData) return;
+    this._session.timeTrial = timeTrialData;
+  }
+
+  // ── Lap positions matrix (packet 15) ────────────────────────────────────────
+
+  setLapPositions(lapPositionsData) {
+    if (!this._isRecording || !this._session || !lapPositionsData) return;
+    this._session.lapPositions = lapPositionsData;
+  }
+
+  // ── Lobby info (packet 9) ───────────────────────────────────────────────────
+
+  setLobbyInfo(lobbyInfoData) {
+    if (!this._isRecording || !this._session || !lobbyInfoData) return;
+    this._session.lobbyInfo = lobbyInfoData;
+  }
+
+  // ── Final classification (packet 8) — called before stop() ──────────────────
+
+  setFinalClassification(classificationData) {
+    if (!this._isRecording || !this._session || !classificationData) return;
+    this._session.finalClassification = classificationData;
+  }
+
+  // ── Motion Ex frame (suspension, wheel forces, chassis attitude) ────────────
+  // These are high-rate — decimate at the same interval as telemetry frames.
+
+  addMotionExFrame(motionEx) {
+    if (!this._isRecording || !this._session || !motionEx) return;
+    // Piggyback on _frameIdx so cadence matches addFrame().
+    if (this._frameIdx % 3 !== 0) return;
+    this._session.motionExFrames.push({
+      // lap reference: matches the last recorded telemetry frame
+      f:   this._frameCount,
+      sp:  motionEx.suspensionPosition,
+      sv:  motionEx.suspensionVelocity,
+      sa:  motionEx.suspensionAcceleration,
+      ws:  motionEx.wheelSpeed,
+      sr:  motionEx.wheelSlipRatio,
+      sag: motionEx.wheelSlipAngle,
+      wlf: motionEx.wheelLatForce,
+      wlg: motionEx.wheelLongForce,
+      h:   motionEx.heightOfCOGAboveGround,
+      lvx: motionEx.localVelocityX,
+      lvy: motionEx.localVelocityY,
+      lvz: motionEx.localVelocityZ,
+      avx: motionEx.angularVelocityX,
+      avy: motionEx.angularVelocityY,
+      avz: motionEx.angularVelocityZ,
+      aax: motionEx.angularAccelerationX,
+      aay: motionEx.angularAccelerationY,
+      aaz: motionEx.angularAccelerationZ,
+      fwa: motionEx.frontWheelsAngle,
+      wvf: motionEx.wheelVertForce,
+      fah: motionEx.frontAeroHeight,
+      rah: motionEx.rearAeroHeight,
+      fra: motionEx.frontRollAngle,
+      rra: motionEx.rearRollAngle,
+      cy:  motionEx.chassisYaw,
+      cp:  motionEx.chassisPitch,
+    });
   }
 
   // ── Lap mutation methods (for context menu) ────────────────────────────────

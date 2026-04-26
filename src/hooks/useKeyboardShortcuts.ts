@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useUIStore, type TabId } from '../store/uiStore';
+import { usePracticeStore } from '../store/practiceStore';
 
 /**
  * Global keyboard shortcut handler — side-effect only, called once in App.tsx.
@@ -12,7 +13,8 @@ export function useKeyboardShortcuts(): void {
       if (
         target.tagName === 'INPUT' ||
         target.tagName === 'SELECT' ||
-        target.tagName === 'TEXTAREA'
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
       ) {
         return;
       }
@@ -36,6 +38,9 @@ export function useKeyboardShortcuts(): void {
           ui.switchTab('history');
           break;
         case '6':
+          ui.switchTab('practice');
+          break;
+        case '7':
           ui.switchTab('settings');
           break;
         case 'r':
@@ -58,6 +63,32 @@ export function useKeyboardShortcuts(): void {
             ui.toggleShortcutsOverlay();
           }
           break;
+        // ── Practice-tab bindings (active only on the Practice tab) ──────
+        case 'i':
+        case 'I': {
+          if (ui.activeTab === 'practice') {
+            const p = usePracticeStore.getState();
+            p.setIncludeInvalidLaps(!p.includeInvalidLaps);
+          }
+          break;
+        }
+        case 'd':
+        case 'D': {
+          if (ui.activeTab === 'practice') {
+            const p = usePracticeStore.getState();
+            p.setReferenceLap(null, null);
+            p.setComparisonLap(null, null);
+          }
+          break;
+        }
+        case 'x':
+        case 'X': {
+          if (ui.activeTab === 'practice') {
+            const p = usePracticeStore.getState();
+            p.setXAxisMode(p.xAxisMode === 'lap' ? 'tyreAge' : 'lap');
+          }
+          break;
+        }
       }
     };
 

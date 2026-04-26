@@ -21,8 +21,8 @@ function VarianceOverlay({ session }: VarianceOverlayProps) {
     if (!bestLap) return null;
 
     const bestFrames = session.frames.slice(
-      bestLap.startFrameIdx,
-      (bestLap.endFrameIdx || session.frames.length) + 1,
+      bestLap.startFrameIdx ?? 0,
+      (bestLap.endFrameIdx ?? session.frames.length - 1) + 1,
     );
     const targetLen = bestFrames.length;
     if (targetLen < 2) return null;
@@ -33,8 +33,8 @@ function VarianceOverlay({ session }: VarianceOverlayProps) {
 
     for (const lap of validLaps) {
       const frames = session.frames.slice(
-        lap.startFrameIdx,
-        (lap.endFrameIdx || session.frames.length) + 1,
+        lap.startFrameIdx ?? 0,
+        (lap.endFrameIdx ?? session.frames.length - 1) + 1,
       );
       if (frames.length < 2) continue;
       const speeds = frames.map((f) => f.s || 0);

@@ -76,8 +76,8 @@ function LapContextMenu({
   const handleExportLap = useCallback(() => {
     if (!lap) return;
     const frames = session.frames.slice(
-      lap.startFrameIdx,
-      (lap.endFrameIdx || session.frames.length) + 1,
+      lap.startFrameIdx ?? 0,
+      (lap.endFrameIdx ?? session.frames.length - 1) + 1,
     );
     const headers = [
       'Frame',

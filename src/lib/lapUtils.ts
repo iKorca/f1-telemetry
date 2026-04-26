@@ -1,5 +1,87 @@
 import type { RecordedLap, SessionDetail, TelemetryFrame } from '@shared/types';
 
+export interface TracePoint { d: number; t: number; }
+
+/**
+ * Minimum samples a lap's trace must accumulate before it's allowed to
+ * become the PB reference. Exported so the store and the consumer agree
+ * on the same threshold — drift between them caused the original "PB
+ * trace and PB time describe different laps" bug.
+ */
+export const MIN_PB_TRACE_SAMPLES = 20;
+// Brand-new lap noise: lap time hasn't moved off zero meaningfully yet.
+const EARLY_LAP_MS = 100;
+// Just crossed S/F — the first samples are noisy; let the car settle.
+const NEAR_START_M = 50;
+
+/**
+ * Delta (ms, current − PB) at the car's current track distance, by
+ * interpolating into a stored PB trace of (distance, time) samples.
+ *
+ * Matches F1 25's own on-screen delta: time-at-distance, not linear
+ * extrapolation from lap fraction — which would wildly misreport on any
+ * track whose lap time isn't evenly distributed across the length.
+ *
+ * Returns null when the number would be noise or misleading:
+ *  - fewer than {@link MIN_TRACE_SAMPLES} PB samples
+ *  - current lap just started (time ≤ {@link EARLY_LAP_MS} ms or
+ *    distance < {@link NEAR_START_M} m)
+ *  - current distance sits before the PB trace's first sample
+ *  - track length is missing/invalid AND we'd need to extrapolate past
+ *    the last sample (otherwise we'd silently chop off the PB tail)
+ *
+ * For distances past the last in-lap sample the function linearly
+ * extrapolates through to (trackLength, pbTotalMs) — gives an accurate
+ * PB-time curve all the way to the line.
+ */
+export function deltaMsAtDistance(
+  pbLapTrace: readonly TracePoint[] | null | undefined,
+  pbTotalMs: number,
+  currentLapTimeMs: number,
+  currentLapDistance: number,
+  trackLength: number,
+): number | null {
+  if (!pbLapTrace || pbLapTrace.length < MIN_PB_TRACE_SAMPLES) return null;
+  if (currentLapTimeMs <= EARLY_LAP_MS) return null;
+  if (currentLapDistance < NEAR_START_M) return null;
+
+  const d = currentLapDistance;
+  const n = pbLapTrace.length;
+
+  if (d < pbLapTrace[0].d) return null;
+
+  if (d >= pbLapTrace[n - 1].d) {
+    const last = pbLapTrace[n - 1];
+    // If trackLength is unknown OR the last sample's time exceeds the
+    // recorded finish, the geometry is corrupt — surface no delta rather
+    // than silently truncate. Equality (`pbTotalMs === last.t`) is fine:
+    // the last sample IS the finish, so `currentLapTimeMs - last.t` is
+    // exactly correct.
+    if (trackLength < last.d || pbTotalMs < last.t) return null;
+    const span = trackLength - last.d;
+    if (span <= 0 || pbTotalMs === last.t) {
+      return currentLapTimeMs - last.t;
+    }
+    const frac = Math.min(1, (d - last.d) / span);
+    const pbTimeAtD = last.t + frac * (pbTotalMs - last.t);
+    return currentLapTimeMs - pbTimeAtD;
+  }
+
+  let lo = 0, hi = n - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (pbLapTrace[mid].d <= d) lo = mid;
+    else hi = mid;
+  }
+  const a = pbLapTrace[lo];
+  const b = pbLapTrace[hi];
+  const span = b.d - a.d;
+  if (span <= 0) return null;
+  const frac = (d - a.d) / span;
+  const pbTimeAtD = a.t + frac * (b.t - a.t);
+  return currentLapTimeMs - pbTimeAtD;
+}
+
 /**
  * Get valid racing laps: excludes invalid, deleted, out-laps, and pit-laps.
  */
@@ -46,10 +128,12 @@ export function getFramesForLap(
   const lap = session.laps?.[lapIdx];
   if (!lap || !session.frames) return [];
 
-  const raw = session.frames.slice(
-    lap.startFrameIdx,
-    (lap.endFrameIdx || session.frames.length) + 1,
-  );
+  // `startFrameIdx` / `endFrameIdx` are nullable on old recordings where
+  // the ring-buffer trimmed the lap's frames — fall back to full-range
+  // slice in that case so the downstream cleanup still runs.
+  const startIdx = lap.startFrameIdx ?? 0;
+  const endIdx = lap.endFrameIdx ?? session.frames.length - 1;
+  const raw = session.frames.slice(startIdx, endIdx + 1);
 
   if (raw.length < 2) return raw;
 

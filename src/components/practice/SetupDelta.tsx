@@ -1,6 +1,7 @@
 import React from 'react';
 import type { PracticeRun } from '@shared/types';
 import type { CarSetup } from '@shared/types/telemetry';
+import { usePracticeStore } from '@/store/practiceStore';
 import styles from './PracticeTab.module.css';
 
 interface SetupDeltaProps {
@@ -60,36 +61,79 @@ function formatValue(v: number | string): string {
   return String(v);
 }
 
+function formatDelta(delta: number): string {
+  const sign = delta > 0 ? '+' : '';
+  if (Math.abs(delta) < 0.01) return '0';
+  if (Number.isInteger(delta)) return `${sign}${delta}`;
+  return `${sign}${delta.toFixed(2)}`;
+}
+
 export default function SetupDelta({ runs }: SetupDeltaProps) {
-  // Only show if at least 2 runs have setups
+  const baselineRunId = usePracticeStore((s) => s.baselineRunId);
+
   const runsWithSetup = runs.filter((r) => r.setup != null);
-  if (runsWithSetup.length < 2) return null;
+  if (runsWithSetup.length < 1) return null;
+
+  // Baseline: user-pinned run if in selection, else leftmost (first selected).
+  const baselineIdx = (() => {
+    if (!baselineRunId) return 0;
+    const idx = runsWithSetup.findIndex((r) => r.id === baselineRunId);
+    return idx >= 0 ? idx : 0;
+  })();
 
   const flattened = runsWithSetup.map((r) => ({
     run: r,
     fields: flattenSetup(r.setup),
   }));
 
-  // Collect all field names across all setups
-  const allFields = new Set<string>();
+  const baselineFields = flattened[baselineIdx].fields;
+
+  // Collect all field names across all setups (ordered by flattenSetup output)
+  const allFields: string[] = [];
+  const seen = new Set<string>();
   for (const f of flattened) {
     for (const key of Object.keys(f.fields)) {
-      allFields.add(key);
+      if (!seen.has(key)) {
+        seen.add(key);
+        allFields.push(key);
+      }
     }
   }
 
-  // Find fields that differ between at least two runs
+  // Partition into changed / unchanged
   const changedFields: string[] = [];
   const unchangedFields: string[] = [];
-
   for (const field of allFields) {
     const values = flattened.map((f) => f.fields[field]);
     const unique = new Set(values.map((v) => String(v ?? '')));
-    if (unique.size > 1) {
-      changedFields.push(field);
-    } else {
-      unchangedFields.push(field);
-    }
+    if (unique.size > 1) changedFields.push(field);
+    else unchangedFields.push(field);
+  }
+
+  // Single-run case: show the setup as a plain readout
+  if (runsWithSetup.length === 1) {
+    return (
+      <div>
+        <div className={styles.sectionTitle}>STINT SETUP</div>
+        <div
+          className={styles.comparisonGrid}
+          style={{ gridTemplateColumns: '160px minmax(100px, 1fr)' }}
+        >
+          <div className={styles.comparisonLabel}>Setting</div>
+          <div className={styles.comparisonLabel} style={{ textAlign: 'center' }}>
+            {runsWithSetup[0].label || runsWithSetup[0].compound}
+          </div>
+          {allFields.map((field) => (
+            <React.Fragment key={field}>
+              <div className={styles.comparisonLabel}>{field}</div>
+              <div className={styles.comparisonValue}>
+                {formatValue(baselineFields[field] ?? '\u2014')}
+              </div>
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (changedFields.length === 0) {
@@ -108,41 +152,97 @@ export default function SetupDelta({ runs }: SetupDeltaProps) {
       <div className={styles.sectionTitle}>
         SETUP DELTA
         <span style={{ color: 'var(--grey-light)', fontWeight: 400, marginLeft: '0.5rem' }}>
-          {changedFields.length} difference{changedFields.length !== 1 ? 's' : ''}
+          {changedFields.length} difference{changedFields.length !== 1 ? 's' : ''} &middot; baseline:&nbsp;
+          <span style={{ color: 'var(--green)' }}>
+            {runsWithSetup[baselineIdx].label || runsWithSetup[baselineIdx].compound}
+          </span>
         </span>
       </div>
 
-      {/* Changed fields as comparison grid */}
+      {/* Matrix */}
       <div
         className={styles.comparisonGrid}
         style={{ gridTemplateColumns: `160px repeat(${runsWithSetup.length}, minmax(100px, 1fr))` }}
       >
         {/* Header */}
         <div className={styles.comparisonLabel}>Setting</div>
-        {runsWithSetup.map((r) => (
-          <div key={r.id} className={styles.comparisonLabel} style={{ textAlign: 'center' }}>
+        {runsWithSetup.map((r, idx) => (
+          <div
+            key={r.id}
+            className={styles.comparisonLabel}
+            style={{
+              textAlign: 'center',
+              color: idx === baselineIdx ? 'var(--green)' : undefined,
+            }}
+          >
             {r.label || r.compound}
+            {idx === baselineIdx && (
+              <span style={{ display: 'block', fontSize: '0.42rem', opacity: 0.7 }}>baseline</span>
+            )}
           </div>
         ))}
 
-        {/* Changed rows */}
-        {changedFields.map((field) => (
-          <React.Fragment key={field}>
-            <div className={styles.comparisonLabel}>{field}</div>
-            {flattened.map((f) => {
-              const val = f.fields[field];
-              return (
-                <div
-                  key={f.run.id}
-                  className={`${styles.comparisonValue} ${styles.setupChanged}`}
-                >
-                  {val != null ? formatValue(val) : '\u2014'}
-                </div>
-              );
-            })}
-          </React.Fragment>
-        ))}
+        {/* Changed rows — each cell tinted relative to baseline */}
+        {changedFields.map((field) => {
+          const basisRaw = baselineFields[field];
+          const basisIsNumeric = typeof basisRaw === 'number';
+          return (
+            <React.Fragment key={field}>
+              <div className={styles.comparisonLabel}>{field}</div>
+              {flattened.map((f, idx) => {
+                const val = f.fields[field];
+                const isBaseline = idx === baselineIdx;
+                const equal =
+                  val != null && basisRaw != null && String(val) === String(basisRaw);
+                const delta =
+                  basisIsNumeric && typeof val === 'number'
+                    ? val - (basisRaw as number)
+                    : null;
+
+                // Color: baseline = green, equal-to-baseline = muted,
+                // different = yellow (gentle) or orange (large)
+                let color: string | undefined;
+                if (isBaseline) color = 'var(--green)';
+                else if (equal) color = 'var(--grey-light)';
+                else color = 'var(--yellow)';
+
+                return (
+                  <div
+                    key={f.run.id}
+                    className={styles.comparisonValue}
+                    style={{ color, fontWeight: isBaseline || !equal ? 700 : 400 }}
+                    title={
+                      delta != null && !isBaseline
+                        ? `${formatValue(val)} (${formatDelta(delta)} vs baseline)`
+                        : undefined
+                    }
+                  >
+                    {val != null ? formatValue(val) : '\u2014'}
+                    {delta != null && delta !== 0 && !isBaseline && (
+                      <span style={{ fontSize: '0.5rem', color: 'var(--grey)', marginLeft: '0.3rem' }}>
+                        ({formatDelta(delta)})
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          );
+        })}
       </div>
+
+      {/* Collapsed unchanged-fields summary */}
+      {unchangedFields.length > 0 && (
+        <div style={{
+          fontFamily: 'var(--font-d)',
+          fontSize: '0.48rem',
+          color: 'var(--grey)',
+          marginTop: '0.4rem',
+          fontStyle: 'italic',
+        }}>
+          {unchangedFields.length} setting{unchangedFields.length !== 1 ? 's' : ''} match across all selected runs
+        </div>
+      )}
     </div>
   );
 }

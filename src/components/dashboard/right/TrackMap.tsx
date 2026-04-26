@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useSessionInfoStore } from '@/store/sessionInfoStore';
 import { useTelemetryStore } from '@/store/telemetryStore';
 import { useTimingStore } from '@/store/timingStore';
@@ -11,7 +12,7 @@ const MAP_SIZE = 230;
 function TrackMap() {
   const trackPoints = useSessionInfoStore((s) => s.trackPoints);
   const trackBounds = useSessionInfoStore((s) => s.trackBounds);
-  const allCarPositions = useTelemetryStore((s) => s.allCarPositions);
+  const allCarPositions = useTelemetryStore(useShallow((s) => s.allCarPositions));
   const playerCarIndex = useTimingStore((s) => s.playerCarIndex);
   const allParticipants = useTimingStore((s) => s.allParticipants);
 

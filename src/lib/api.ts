@@ -210,6 +210,52 @@ export function deletePracticeRun(track: string, runId: string): Promise<Practic
   });
 }
 
+export function splitPracticeRun(
+  track: string,
+  runId: string,
+  atLap: number,
+): Promise<PracticeWorkbook> {
+  return fetchJSON<PracticeWorkbook>(
+    `${BASE}/practice/${encodeURIComponent(track)}/runs/${runId}/split`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ atLap }),
+    },
+  );
+}
+
+export function mergePracticeRuns(
+  track: string,
+  primaryRunId: string,
+  withRunId: string,
+): Promise<PracticeWorkbook> {
+  return fetchJSON<PracticeWorkbook>(
+    `${BASE}/practice/${encodeURIComponent(track)}/runs/${primaryRunId}/merge`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ withRunId }),
+    },
+  );
+}
+
+export function updatePracticeLap(
+  track: string,
+  runId: string,
+  lapNum: number,
+  changes: { flag?: string | null; notes?: string; valid?: boolean },
+): Promise<PracticeRun> {
+  return fetchJSON<PracticeRun>(
+    `${BASE}/practice/${encodeURIComponent(track)}/runs/${runId}/laps/${lapNum}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(changes),
+    },
+  );
+}
+
 export function extractPracticeRuns(sessionId: string): Promise<{
   trackName: string;
   runsAdded: number;

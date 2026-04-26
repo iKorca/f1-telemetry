@@ -1,14 +1,6 @@
 import React from 'react';
+import { getCompoundColor } from '@/lib/colors';
 import styles from './StintBadge.module.css';
-
-const COMPOUND_COLORS: Record<string, string> = {
-  SOFT: '#ff3333',
-  MEDIUM: '#ffcc00',
-  HARD: '#ffffff',
-  INTER: '#33cc33',
-  WET: '#3399ff',
-  UNKNOWN: '#888888',
-};
 
 interface Stint {
   compound: string;
@@ -23,11 +15,16 @@ interface StintBadgeProps {
 }
 
 const StintBadge = React.memo(function StintBadge({
-  stints,
+  stints: rawStints,
   currentCompound,
   currentLap,
 }: StintBadgeProps) {
-  const compColor = COMPOUND_COLORS[currentCompound] || '#888';
+  // Defensive: drop any UNKNOWN stints that may have slipped in via older
+  // sessions recorded before the server-side guard was added.
+  const stints = rawStints.filter(
+    (s) => s.compound && s.compound !== 'UNKNOWN',
+  );
+  const compColor = getCompoundColor(currentCompound);
   const totalLaps = currentLap || 1;
 
   if (stints.length === 0 && currentCompound) {
@@ -53,7 +50,7 @@ const StintBadge = React.memo(function StintBadge({
           5,
           ((stint.endLap - stint.startLap + 1) / totalLaps) * 100,
         );
-        const color = COMPOUND_COLORS[stint.compound] || '#888';
+        const color = getCompoundColor(stint.compound);
         return (
           <div
             key={i}

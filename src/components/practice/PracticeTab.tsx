@@ -4,9 +4,22 @@ import { useSessionInfoStore } from '@/store/sessionInfoStore';
 import { useUIStore } from '@/store/uiStore';
 import * as api from '@/lib/api';
 import { getF125TrackNames } from '@/lib/trackDatabase';
-import RunsTable from './RunsTable';
+import RunsSidebar from './RunsSidebar';
 import StintComparison from './StintComparison';
 import SetupDelta from './SetupDelta';
+import RaceFuelCalculator from './RaceFuelCalculator';
+import LapTimeChart from './LapTimeChart';
+import FuelChart from './FuelChart';
+import TyreWearChart from './TyreWearChart';
+import FuelVsPaceChart from './FuelVsPaceChart';
+import BrakeTempChart from './BrakeTempChart';
+import TyrePressureChart from './TyrePressureChart';
+import ChartControls from './ChartControls';
+import ConsistencyPanel from './ConsistencyPanel';
+import LapCompare from './LapCompare';
+import ERSChart from './ERSChart';
+import FrictionCircle from './FrictionCircle';
+import DeltaTelemetry from './DeltaTelemetry';
 import EmptyState from '@/components/common/EmptyState';
 import styles from './PracticeTab.module.css';
 
@@ -53,7 +66,6 @@ export default function PracticeTab() {
   );
 
   const handleImportFromHistory = useCallback(async () => {
-    // Import all practice sessions for the current track
     try {
       const sessions = await api.getSessions();
       const practiceSessions = sessions.filter(
@@ -90,9 +102,11 @@ export default function PracticeTab() {
     }) ?? [];
 
   const selectedRuns = filteredRuns.filter((r) => selectedRunIds.has(r.id));
+  const hasRuns = filteredRuns.length > 0;
 
   return (
     <div className={styles.container}>
+      {/* ── Toolbar ── */}
       <div className={styles.toolbar}>
         <span className={styles.toolbarLabel}>PRACTICE LAB</span>
 
@@ -132,29 +146,72 @@ export default function PracticeTab() {
         )}
       </div>
 
-      <div className={styles.content}>
-        {!selectedTrack ? (
+      {/* ── Content ── */}
+      {!selectedTrack ? (
+        <div className={styles.content}>
           <EmptyState message="Select a track to open your practice workbook" />
-        ) : filteredRuns.length === 0 ? (
+        </div>
+      ) : !hasRuns ? (
+        <div className={styles.content}>
           <div className={styles.empty}>
             <div>No practice runs for {selectedTrack}</div>
             <div style={{ fontSize: '0.6rem' }}>
               Record a practice session or import from History
             </div>
           </div>
-        ) : (
-          <>
-            <RunsTable runs={filteredRuns} />
+        </div>
+      ) : (
+        <div className={styles.columns}>
+          {/* ── Column 1: Runs Sidebar ── */}
+          <RunsSidebar runs={filteredRuns} />
 
-            {selectedRuns.length >= 2 && (
+          {/* ── Column 2: Comparison Data ── */}
+          <div className={styles.colComparison}>
+            <RaceFuelCalculator runs={selectedRuns} trackName={selectedTrack!} />
+
+            <LapCompare runs={selectedRuns} />
+            {selectedRuns.length >= 2 ? (
               <>
                 <StintComparison runs={selectedRuns} />
+                <ConsistencyPanel runs={selectedRuns} />
                 <SetupDelta runs={selectedRuns} />
               </>
+            ) : selectedRuns.length === 1 ? (
+              <>
+                <StintComparison runs={selectedRuns} />
+                <ConsistencyPanel runs={selectedRuns} />
+                <SetupDelta runs={selectedRuns} />
+              </>
+            ) : (
+              <div className={styles.colPlaceholder}>
+                Select runs to compare
+              </div>
             )}
-          </>
-        )}
-      </div>
+          </div>
+
+          {/* ── Column 3: Charts ── */}
+          <div className={styles.colCharts}>
+            {selectedRuns.length >= 1 ? (
+              <>
+                <ChartControls />
+                <DeltaTelemetry runs={selectedRuns} />
+                <LapTimeChart runs={selectedRuns} />
+                <FuelChart runs={selectedRuns} />
+                <TyreWearChart runs={selectedRuns} />
+                <BrakeTempChart runs={selectedRuns} />
+                <TyrePressureChart runs={selectedRuns} />
+                <ERSChart runs={selectedRuns} />
+                <FuelVsPaceChart runs={selectedRuns} />
+                <FrictionCircle runs={selectedRuns} />
+              </>
+            ) : (
+              <div className={styles.colPlaceholder}>
+                Select runs to view charts
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

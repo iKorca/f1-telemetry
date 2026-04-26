@@ -1,29 +1,20 @@
-import React, { useState, useCallback } from 'react';
+import React from 'react';
 import { useRaceStore } from '@/store/raceStore';
 import { useTimingStore } from '@/store/timingStore';
-import ColumnPicker from './ColumnPicker';
 import RaceTable from './RaceTable';
 import PitPredictor from './PitPredictor';
 import WeatherImpact from './WeatherImpact';
 import EmptyState from '@/components/common/EmptyState';
 import styles from './RaceTab.module.css';
 
-// 11 columns: all visible by default
-const DEFAULT_COLUMNS = Array(11).fill(true);
-
+/**
+ * Race tab shell. Column visibility, sort, and drag-reorder all live on
+ * RaceTable via the shared DataTable primitive now — the old ColumnPicker
+ * + DEFAULT_COLUMNS boolean array were dropped.
+ */
 function RaceTab() {
   const raceState = useRaceStore((s) => s.raceState);
   const playerCarIndex = useTimingStore((s) => s.playerCarIndex);
-
-  const [visibleColumns, setVisibleColumns] = useState<boolean[]>(DEFAULT_COLUMNS);
-
-  const handleToggle = useCallback((index: number) => {
-    setVisibleColumns((prev) => {
-      const next = [...prev];
-      next[index] = !next[index];
-      return next;
-    });
-  }, []);
 
   if (!raceState || !raceState.active) {
     return (
@@ -35,12 +26,7 @@ function RaceTab() {
 
   return (
     <div className={styles.wrapper}>
-      <ColumnPicker visibleColumns={visibleColumns} onToggle={handleToggle} />
-      <RaceTable
-        raceState={raceState}
-        playerCarIndex={playerCarIndex}
-        visibleColumns={visibleColumns}
-      />
+      <RaceTable />
       <PitPredictor raceState={raceState} playerCarIndex={playerCarIndex} />
       <WeatherImpact />
     </div>

@@ -7,6 +7,49 @@
   padding: 0;
 }
 
+/* ── Accessibility baseline ──────────────────────────────────────────────── */
+
+/* Global keyboard-focus ring. `:focus-visible` keeps it off for mouse clicks
+ * but on for Tab / arrow navigation, so power users aren't punished with
+ * halos on every click. Applied to every interactive element by default; per
+ * component CSS can override with its own ring. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Shared DataTable row-state classes. These are unscoped so that any
+ * rowClassName string passed to <DataTable /> can apply consistent styling
+ * without each call-site owning its own CSS module. */
+.historyLapBest > div {
+  color: var(--green);
+  font-weight: 700;
+}
+.historyLapSelected > div {
+  background: rgba(59, 130, 246, 0.14) !important;
+}
+.historyLapDim > div {
+  opacity: 0.55;
+  color: var(--grey);
+}
+
+/* Users who request reduced motion get static transitions instead of the
+ * 150–300 ms crossfades scattered across component CSS. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 html, body {
   height: 100%;
   background: var(--bg);

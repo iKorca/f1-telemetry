@@ -11,6 +11,7 @@ import ChartSection from '../charts/ChartSection';
 import RaceAnalysis from '../analysis/RaceAnalysis';
 import TrackMapHistory from '../analysis/TrackMapHistory';
 import DriverComparison from '../analysis/DriverComparison';
+import QualifyingLeaderboard from '../analysis/QualifyingLeaderboard';
 import LapContextMenu from '../modals/LapContextMenu';
 import EmptyState from '@/components/common/EmptyState';
 import styles from './SessionDetail.module.css';
@@ -103,7 +104,14 @@ function SessionDetail() {
     return <EmptyState message="Select a session to view details" />;
   }
 
-  const isRace = /race|sprint/i.test(currentSession.sessionType || '');
+  const isRace = /^(Race|Race 2|Race 3|Sprint)$/i.test(currentSession.sessionType || '');
+  // Practice / qualifying / shootout / time-trial — anything where per-driver
+  // best laps are the primary metric. Sprint-shootout sessions (Sprint SO*)
+  // also qualify here: they're lap-time-ranked, not race-ordered.
+  const isQualifyingLike =
+    !isRace &&
+    !!currentSession.raceData &&
+    Object.keys(currentSession.raceData.carLaps || {}).length > 0;
 
   return (
     <div className={styles.container}>
@@ -134,6 +142,26 @@ function SessionDetail() {
       {isRace && currentSession.raceData && (
         <div className={styles.analysisSection}>
           <RaceAnalysis session={currentSession} />
+        </div>
+      )}
+
+      {isQualifyingLike && (
+        <div className={styles.analysisSection}>
+          <QualifyingLeaderboard
+            session={currentSession}
+            onOpenTelemetry={(a, b) => {
+              setSelectedLapIdx(a);
+              setCompareLapIdx(b);
+              setShowCharts(true);
+              // Scroll into view so the user sees the new ChartSection.
+              setTimeout(() => {
+                document.querySelector('[data-chart-section]')?.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'start',
+                });
+              }, 50);
+            }}
+          />
         </div>
       )}
 

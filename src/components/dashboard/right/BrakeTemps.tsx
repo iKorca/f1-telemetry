@@ -1,4 +1,5 @@
 import React from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useTelemetryStore } from '@/store/telemetryStore';
 import { brakeTempColor } from '@/lib/colors';
 import styles from './BrakeTemps.module.css';
@@ -12,7 +13,7 @@ const CORNERS = [
 ] as const;
 
 function BrakeTemps() {
-  const brakesTemperature = useTelemetryStore((s) => s.brakesTemperature);
+  const brakesTemperature = useTelemetryStore(useShallow((s) => s.brakesTemperature));
 
   return (
     <>

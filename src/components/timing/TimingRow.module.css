@@ -104,6 +104,21 @@
   color: var(--green);
 }
 
+/* Sector cells — F1-style colour coding */
+.sectorPurple {
+  color: var(--purple);
+  font-weight: 700;
+}
+
+.sectorGreen {
+  color: var(--green);
+}
+
+.sectorEmpty {
+  color: var(--grey);
+  opacity: 0.6;
+}
+
 /* ── Mobile ── */
 @media (max-width: 768px) {
   .row td {

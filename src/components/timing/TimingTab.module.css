@@ -1,10 +1,51 @@
-/* TimingTab styles - ported from public/style.css timing tower section */
+/* TimingTab styles - shared DataTable primitive handles table layout. */
 
 .wrap {
   flex: 1;
   overflow: auto;
   padding: 0;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ── Row classes applied by rowClassName ────────────────────────────────── */
+/* DataTable lays out rows via `display: contents` cells, so background
+ * colour must be applied to the cell — the class lands on the parent row
+ * wrapper, cascade reaches the immediate cell children. */
+
+.player > div {
+  background: rgba(232, 0, 45, 0.12) !important;
+}
+
+.fastest > div {
+  color: var(--purple);
+}
+
+.pit > div {
+  color: var(--yellow);
+}
+
+.retired > div {
+  color: var(--grey);
+  opacity: 0.55;
+}
+
+/* ── Sector + best-lap cell colouring ────────────────────────────────── */
+
+.sectorPurple {
+  color: var(--purple);
+  font-weight: 700;
+}
+
+.sectorGreen {
+  color: var(--green);
+}
+
+.bestLap {
+  color: var(--green);
+  font-weight: 700;
 }
 
 .table {

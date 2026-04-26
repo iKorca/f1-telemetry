@@ -5,6 +5,7 @@ import * as api from '@/lib/api';
 import ConnectionCard from './ConnectionCard';
 import RecordingCard from './RecordingCard';
 import DisplayCard from './DisplayCard';
+import AnalysisCard from './AnalysisCard';
 import TunnelCard from './TunnelCard';
 import styles from './SettingsTab.module.css';
 
@@ -142,6 +143,8 @@ function SettingsTab() {
           onFrameInterval={setFrameInterval}
           onMaxSessions={setMaxSessions}
         />
+
+        <AnalysisCard />
 
         <DisplayCard
           showTrackMap={showTrackMap}

@@ -1,0 +1,383 @@
+.grid {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 8px;
+  padding: 8px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+/* Each tile becomes a sizing context so child clamps can scale with TILE
+   width via container-query units (cqi). Avoids the redundant
+   @media (max-width: 900px) block that re-declared the same clamps. */
+.tile {
+  background: #0a0a14;
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  container-type: inline-size;
+  container-name: tile;
+}
+
+.tileHeader {
+  font-family: var(--font-d);
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--grey);
+  margin-bottom: 0.3rem;
+}
+
+.tileSub {
+  margin-left: 0.5rem;
+  font-size: 0.48rem;
+  color: var(--grey-light);
+  letter-spacing: 0.1em;
+  font-weight: 400;
+}
+
+.tileBody {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+/* ───────────── BigDelta tile ───────────── */
+
+.bdToggle {
+  background: transparent;
+  border: none;
+  padding: 0 0.35rem;
+  color: var(--grey);
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: uppercase;
+}
+.bdToggleActive {
+  color: var(--white);
+}
+.bdToggleSep {
+  opacity: 0.3;
+}
+
+.bdValue {
+  font-family: var(--font-d);
+  font-size: clamp(3.5rem, 22cqi, 7rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.bdFooter {
+  font-family: var(--font-d);
+  font-size: 0.55rem;
+  color: var(--grey-light);
+  letter-spacing: 0.15em;
+  text-align: center;
+  margin-top: 0.4rem;
+}
+.bdFooterRating {
+  opacity: 0.6;
+  margin-left: 0.5rem;
+}
+.bdFooterPending {
+  color: var(--orange);
+  margin-left: 0.5rem;
+}
+
+.bdDiag {
+  font-family: var(--font-d);
+  font-size: 0.45rem;
+  color: var(--grey);
+  letter-spacing: 0.05em;
+  text-align: center;
+  margin-top: 0.2rem;
+  opacity: 0.7;
+}
+
+/* ───────────── Tyre Wear tile ───────────── */
+
+.tyreGrid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 0.5rem;
+  min-height: 0;
+}
+
+/* Each corner: label LEFT, huge percentage RIGHT — readable from peripheral
+   vision. The wear-gradient colour is supplied via `--tyre-color` so all
+   three uses (border, fill, number) read from one source instead of three
+   separate inline style props. */
+.tyreCorner {
+  position: relative;
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid var(--tyre-color, var(--grey));
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.3rem 0.9rem;
+}
+
+/* Vertical fill bar that rises with wear %. */
+.tyreFill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--tyre-color, var(--grey));
+  opacity: 0.22;
+  transition: height 0.25s, background 0.25s;
+  pointer-events: none;
+}
+
+.tyreLabel {
+  position: relative;
+  font-family: var(--font-d);
+  /* Bumped to ~3rem cap so the label stays legible from the side at the
+     dominant 144 px digit size — peripheral threshold is ~2.5–3×.
+     Container-relative scaling so single-column reflows still scale. */
+  font-size: clamp(1.2rem, 7cqi, 3rem);
+  color: var(--grey-light);
+  letter-spacing: 0.15em;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.tyreNumber {
+  position: relative;
+  font-family: var(--font-d);
+  font-size: clamp(3rem, 32cqi, 9rem);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  color: var(--tyre-color, var(--white));
+}
+
+.tyreNumberPct {
+  font-size: 0.32em;
+  opacity: 0.7;
+  margin-left: 0.08em;
+}
+
+/* ───────────── Compound Strategy tile ───────────── */
+
+.csHeadline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.7rem;
+  margin-bottom: 0.45rem;
+  border-radius: 6px;
+  flex: 0 0 auto;
+}
+.csHeadlineMatch {
+  background: rgba(57, 211, 83, 0.08);
+  border: 1px solid rgba(57, 211, 83, 0.35);
+}
+.csHeadlineMismatch {
+  background: rgba(232, 0, 45, 0.1);
+  border: 1px solid rgba(232, 0, 45, 0.5);
+}
+/* Rendered while we don't know what's bolted on — neutral border, no
+   STAY/SWAP pill (the consumer hides the pill in this state). */
+.csHeadlineUnknown {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+}
+
+.csHeadlineSide {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.csOnLabel {
+  font-family: var(--font-d);
+  font-size: 0.48rem;
+  color: var(--grey-light);
+  letter-spacing: 0.12em;
+}
+.csCompound,
+.csNowRec {
+  font-family: var(--font-d);
+  font-size: clamp(1rem, 2.6vw, 1.4rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+}
+.csArrow {
+  font-family: var(--font-d);
+  font-size: 1.4rem;
+  opacity: 0.4;
+}
+
+/* Weather glyph baked into each recommendation. Provides a non-color
+   distinguisher (☀ / ☂ / ☔) so red/green colour-blind users can still
+   tell DRY apart from INTER without relying on hue. */
+.csRecIcon {
+  font-size: 0.85em;
+  line-height: 1;
+}
+
+.csAction {
+  font-family: var(--font-d);
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 0.2rem 0.45rem;
+  border-radius: 3px;
+}
+.csActionStay {
+  background: rgba(57, 211, 83, 0.25);
+  color: var(--green);
+}
+.csActionSwap {
+  background: rgba(232, 0, 45, 0.25);
+  color: var(--red);
+}
+
+.csForecastWrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.csForecastLabel {
+  font-family: var(--font-d);
+  font-size: clamp(0.58rem, 1.1vw, 0.78rem);
+  letter-spacing: 0.2em;
+  color: var(--grey);
+  margin-bottom: 0.3rem;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.csForecastGrid {
+  display: grid;
+  gap: 0.4rem;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Each forecast cell is its own container, so the inner clamps scale
+   with CELL width — not tile width. That keeps "INTER" fitting cleanly
+   in a 6-slot strip while still scaling up in 4-slot strips, with no
+   N-aware math. */
+.csForecastCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+  padding: 0.6rem 0.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  container-type: inline-size;
+  container-name: forecastCell;
+}
+.csForecastCellChange {
+  border: 2px solid rgba(245, 197, 24, 0.7);
+  background: rgba(245, 197, 24, 0.12);
+}
+
+.csForecastTime {
+  font-family: var(--font-d);
+  /* Smallest of the three lines — least-urgent info. */
+  font-size: clamp(0.7rem, 8cqi, 1.1rem);
+  color: var(--grey-light);
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Non-color encoder for DRY/INTER/WET. Stacked above the word so a
+   tight 6-slot strip doesn't have to fit icon + word side-by-side. */
+.csForecastIcon {
+  font-size: clamp(1.1rem, 14cqi, 1.8rem);
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+/* DRY / INTER / WET — dominant peripheral read. Sized off the cell
+   container, so a 6-slot strip (cell ≈ 140 px) lands at ~16 px font and
+   "INTER" fits comfortably; a 4-slot strip (cell ≈ 215 px) gives ~25 px;
+   a single-column reflow naturally widens further. */
+.csForecastRec {
+  font-family: var(--font-d);
+  font-size: clamp(1.05rem, 13cqi, 2rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* Rain % is supporting context — sized so DRY/INTER/WET keeps a clean
+   ≥1.6× peripheral-vision dominance ratio. */
+.csForecastRain {
+  font-family: var(--font-d);
+  font-size: clamp(0.85rem, 9cqi, 1.4rem);
+  font-weight: 700;
+  color: var(--white);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+.csForecastRainPct {
+  font-size: 0.5em;
+  opacity: 0.75;
+  margin-left: 0.05em;
+}
+
+.csChangeWarning {
+  font-family: var(--font-d);
+  font-size: clamp(1.1rem, 2.2vw, 1.7rem);
+  color: var(--yellow);
+  letter-spacing: 0.15em;
+  margin-top: 0.5rem;
+  text-align: center;
+  font-weight: 700;
+  flex: 0 0 auto;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(245, 197, 24, 0.12);
+  border: 1px solid rgba(245, 197, 24, 0.45);
+}
+
+/* Single-column reflow on narrow viewports. Sizing scales with tile
+   container width via cqi, so we don't need to redeclare clamps here —
+   the same rules give bigger text in a wider tile and smaller text in
+   a narrower one automatically. */
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(4, minmax(200px, 1fr));
+  }
+}

@@ -34,6 +34,40 @@
   font-size: 0.75rem;
   opacity: 0.78;
   transition: color 0.25s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.windowTag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.windowBar {
+  position: relative;
+  height: 3px;
+  background: linear-gradient(
+    to right,
+    #4a90e2 0%,
+    var(--green) 20%,
+    var(--green) 80%,
+    var(--red) 100%
+  );
+  border-radius: 2px;
+  margin: 1px 0 2px;
+  opacity: 0.6;
+}
+
+.windowMarker {
+  position: absolute;
+  top: -2px;
+  width: 3px;
+  height: 7px;
+  border-radius: 1px;
+  transform: translateX(-50%);
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
 }
 
 .wearWrap {

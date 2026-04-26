@@ -1,7 +1,7 @@
 import React from 'react';
 import type { LapData, CarStatus, Participant } from '@shared/types';
 import { DRIVER_STATUS } from '@/lib/constants';
-import { fmtTime, fmtDelta } from '@/lib/formatters';
+import { fmtTime, fmtSector, fmtDelta } from '@/lib/formatters';
 import { getTeamColor } from '@/lib/colors';
 import styles from './TimingRow.module.css';
 
@@ -27,6 +27,14 @@ interface TimingRowProps {
   qualiBestMs: number;
   sessionBestMs: number;
   aheadBestMs: number;
+  // Per-car best sector times (from session history) + session-wide bests
+  // for colour-coding. 0 = no data yet.
+  bestS1Ms: number;
+  bestS2Ms: number;
+  bestS3Ms: number;
+  sessionBestS1Ms: number;
+  sessionBestS2Ms: number;
+  sessionBestS3Ms: number;
 }
 
 function TimingRowInner({
@@ -40,6 +48,12 @@ function TimingRowInner({
   qualiBestMs,
   sessionBestMs,
   aheadBestMs,
+  bestS1Ms,
+  bestS2Ms,
+  bestS3Ms,
+  sessionBestS1Ms,
+  sessionBestS2Ms,
+  sessionBestS3Ms,
 }: TimingRowProps) {
   const isPit = lapData.pitStatus > 0;
   const isRetired = lapData.resultStatus >= 2;
@@ -114,6 +128,20 @@ function TimingRowInner({
     .filter(Boolean)
     .join(' ');
 
+  // Sector-cell colour rules:
+  //   purple  = session best (overall optimal sector)
+  //   green   = driver's personal best (but not session best)
+  //   white   = filled but not best
+  const sectorClass = (sectorMs: number, sessBest: number) => {
+    if (sectorMs <= 0) return styles.sectorEmpty;
+    if (sessBest > 0 && sectorMs === sessBest) return styles.sectorPurple;
+    return styles.sectorGreen;
+  };
+
+  const s1Str = bestS1Ms > 0 ? fmtSector(bestS1Ms) : '\u2014';
+  const s2Str = bestS2Ms > 0 ? fmtSector(bestS2Ms) : '\u2014';
+  const s3Str = bestS3Ms > 0 ? fmtSector(bestS3Ms) : '\u2014';
+
   return (
     <tr className={rowClasses}>
       <td className={styles.pos}>{lapData.carPosition}</td>
@@ -126,6 +154,9 @@ function TimingRowInner({
       <td className={isBestLapSessionBest ? styles.bestLap : undefined}>
         {bestLap}
       </td>
+      <td className={sectorClass(bestS1Ms, sessionBestS1Ms)}>{s1Str}</td>
+      <td className={sectorClass(bestS2Ms, sessionBestS2Ms)}>{s2Str}</td>
+      <td className={sectorClass(bestS3Ms, sessionBestS3Ms)}>{s3Str}</td>
       <td>
         <span className={compoundClasses}>{compound}</span>
       </td>
@@ -159,6 +190,12 @@ function rowsEqual(prev: TimingRowProps, next: TimingRowProps): boolean {
     (next.carStatus?.tyreCompoundName || '')
   )
     return false;
+  if (prev.bestS1Ms !== next.bestS1Ms) return false;
+  if (prev.bestS2Ms !== next.bestS2Ms) return false;
+  if (prev.bestS3Ms !== next.bestS3Ms) return false;
+  if (prev.sessionBestS1Ms !== next.sessionBestS1Ms) return false;
+  if (prev.sessionBestS2Ms !== next.sessionBestS2Ms) return false;
+  if (prev.sessionBestS3Ms !== next.sessionBestS3Ms) return false;
   return true;
 }
 

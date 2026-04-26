@@ -1,7 +1,8 @@
-import React, { useMemo, useRef, useEffect } from 'react';
-import type { SessionDetail } from '@shared/types';
+import React, { useMemo } from 'react';
+import type { SessionDetail, RecordedLap } from '@shared/types';
 import { findBestLapIndex } from '@/lib/lapUtils';
-import LapTableBase from '@/components/shared/LapTableBase';
+import DataTable from '@/components/common/DataTable';
+import { lapColumns } from '@/components/shared/lapColumns';
 
 interface LiveLapTableProps {
   session: SessionDetail;
@@ -10,29 +11,40 @@ interface LiveLapTableProps {
 }
 
 function LiveLapTable({ session, selectedLap, onLapClick }: LiveLapTableProps) {
-  const prevLapCountRef = useRef(0);
+  const bestIdx = useMemo(
+    () => findBestLapIndex(session.laps || []),
+    [session.laps],
+  );
 
-  const { laps, bestIdx } = useMemo(() => {
-    const laps = session.laps || [];
-    return { laps, bestIdx: findBestLapIndex(laps) };
-  }, [session.laps]);
+  const rows = useMemo<(RecordedLap & { __idx: number })[]>(
+    () =>
+      (session.laps || [])
+        .map((l, i) => ({ ...l, __idx: i }))
+        .filter((l) => !l.deleted),
+    [session.laps],
+  );
 
-  // Track new laps for flash animation
-  const currentLapCount = laps.length;
-  const hasNewLap = currentLapCount > prevLapCountRef.current;
-  useEffect(() => {
-    prevLapCountRef.current = currentLapCount;
-  }, [currentLapCount]);
+  const columns = useMemo(() => lapColumns({ showTyreDot: true }), []);
+
+  const rowClass = (l: (typeof rows)[number]): string => {
+    const parts: string[] = [];
+    if (l.__idx === bestIdx) parts.push('historyLapBest');
+    if (l.__idx === selectedLap) parts.push('historyLapSelected');
+    if (l.valid === false || l.isOutLap || l.isPitLap) parts.push('historyLapDim');
+    return parts.join(' ');
+  };
 
   return (
-    <LapTableBase
-      laps={laps}
-      bestLapIdx={bestIdx}
-      selectedLapIdx={selectedLap}
-      onLapClick={onLapClick}
-      showFlashAnimation={hasNewLap}
-      flashLapIdx={laps.length - 1}
-      showTyreDot={true}
+    <DataTable
+      columns={columns}
+      rows={rows}
+      getRowId={(l) => l.__idx}
+      storageKey="session-laps"
+      initialSort={{ columnId: 'lapNum', dir: 'asc' }}
+      onRowClick={(l) => onLapClick(l.__idx)}
+      rowClassName={rowClass}
+      size="compact"
+      emptyState={{ message: 'Waiting for the first recorded lap' }}
     />
   );
 }

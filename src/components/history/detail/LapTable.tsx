@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
-import type { SessionDetail } from '@shared/types';
+import type { SessionDetail, RecordedLap } from '@shared/types';
 import { findBestLapIndex } from '@/lib/lapUtils';
-import LapTableBase from '@/components/shared/LapTableBase';
+import DataTable from '@/components/common/DataTable';
+import { lapColumns } from '@/components/shared/lapColumns';
 
 interface LapTableProps {
   session: SessionDetail;
@@ -16,18 +17,43 @@ function LapTable({
   onLapSelect,
   onContextMenu,
 }: LapTableProps) {
-  const bestIdx = useMemo(() => {
-    return findBestLapIndex(session.laps || []);
-  }, [session.laps]);
+  const bestIdx = useMemo(() => findBestLapIndex(session.laps || []), [session.laps]);
+
+  // Preserve the original slot index so click / right-click still points
+  // at the correct `session.laps[i]` after filtering out deleted laps.
+  const rows = useMemo<(RecordedLap & { __idx: number })[]>(
+    () =>
+      (session.laps || [])
+        .map((l, i) => ({ ...l, __idx: i }))
+        .filter((l) => !l.deleted),
+    [session.laps],
+  );
+
+  const columns = useMemo(() => lapColumns({ showTyreDot: false }), []);
+
+  const rowClass = (l: (typeof rows)[number]) => {
+    const parts: string[] = [];
+    if (l.__idx === bestIdx) parts.push('historyLapBest');
+    if (l.__idx === selectedLapIdx) parts.push('historyLapSelected');
+    if (l.valid === false || l.isOutLap || l.isPitLap) parts.push('historyLapDim');
+    return parts.join(' ');
+  };
 
   return (
-    <LapTableBase
-      laps={session.laps || []}
-      bestLapIdx={bestIdx}
-      selectedLapIdx={selectedLapIdx}
-      onLapClick={onLapSelect}
-      onContextMenu={onContextMenu}
-      showTyreDot={false}
+    <DataTable
+      columns={columns}
+      rows={rows}
+      getRowId={(l) => l.__idx}
+      storageKey="history-laps"
+      initialSort={{ columnId: 'lapNum', dir: 'asc' }}
+      onRowClick={(l) => onLapSelect(l.__idx)}
+      onRowContextMenu={(l, e) => {
+        e.preventDefault();
+        onContextMenu(e, l.__idx);
+      }}
+      rowClassName={rowClass}
+      size="compact"
+      emptyState={{ message: 'No laps recorded' }}
     />
   );
 }

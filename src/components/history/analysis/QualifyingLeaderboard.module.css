@@ -1,0 +1,370 @@
+.wrap {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.title {
+  font-family: var(--font-d);
+  font-weight: 700;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  color: var(--grey-light);
+}
+
+.subtitle {
+  font-family: var(--font-d);
+  font-size: 0.5rem;
+  color: var(--grey);
+  letter-spacing: 0.1em;
+}
+
+.clearBtn {
+  margin-left: auto;
+  font-family: var(--font-d);
+  font-size: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--grey-light);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.clearBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--white);
+}
+
+.empty {
+  padding: 1rem;
+  color: var(--grey);
+  font-family: var(--font-d);
+  font-size: 0.6rem;
+  text-align: center;
+  letter-spacing: 0.1em;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-d);
+  font-size: 0.58rem;
+}
+
+.table thead th {
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.5rem;
+  color: var(--grey);
+  letter-spacing: 0.12em;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  position: sticky;
+  top: 0;
+}
+
+.table tbody td {
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--white);
+  white-space: nowrap;
+}
+
+.driverRow {
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.driverRow:hover td {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.driverRowOpen td {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.pos {
+  font-weight: 700;
+  width: 1.8em;
+}
+
+.driver {
+  border-left: 3px solid var(--grey);
+  padding-left: 0.6rem;
+  font-weight: 700;
+}
+
+.chev {
+  display: inline-block;
+  width: 0.8rem;
+  color: var(--grey-light);
+  font-size: 0.5rem;
+}
+
+.bestLap {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.lapRow td {
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 0.55rem;
+  color: var(--grey-light);
+}
+
+.lapRowPicked td {
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: var(--white);
+}
+
+.lapCell {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-left: 1.4rem !important;
+}
+
+.lapCell input[type='checkbox'] {
+  cursor: pointer;
+  accent-color: var(--blue);
+}
+
+.lapNum {
+  font-weight: 700;
+  color: var(--white);
+}
+
+.tag {
+  background: rgba(57, 211, 83, 0.15);
+  color: var(--green);
+  padding: 0.05rem 0.3rem;
+  border-radius: 2px;
+  font-size: 0.4rem;
+  letter-spacing: 0.1em;
+}
+
+.compound {
+  font-family: var(--font-d);
+  font-size: 0.42rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--grey-light);
+  letter-spacing: 0.05em;
+}
+
+.sectorPurple { color: var(--purple); font-weight: 700; }
+.sectorGreen  { color: var(--green); }
+.sectorEmpty  { color: var(--grey); opacity: 0.6; }
+
+.hint {
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-d);
+  font-size: 0.52rem;
+  color: var(--blue);
+  border-top: 1px dashed var(--border);
+  letter-spacing: 0.05em;
+}
+
+/* ── Compare panel ── */
+
+.compare {
+  border-top: 1px solid var(--border);
+  background: rgba(59, 130, 246, 0.03);
+  padding: 0.6rem 0.8rem;
+}
+
+.compareHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 0.4rem;
+}
+
+.compareTitle {
+  font-family: var(--font-d);
+  font-weight: 700;
+  font-size: 0.55rem;
+  letter-spacing: 0.15em;
+  color: var(--grey-light);
+}
+
+.compareSub {
+  font-family: var(--font-d);
+  font-size: 0.5rem;
+  color: var(--grey);
+}
+
+.compareGrid {
+  display: grid;
+  grid-template-columns: 140px repeat(3, minmax(100px, 1fr));
+  gap: 0;
+  font-family: var(--font-d);
+  font-size: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.compareGrid > div {
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+.compareGrid > div:nth-last-child(-n+4) {
+  border-bottom: none;
+}
+
+.compareLabel {
+  color: var(--grey-light);
+  background: rgba(255, 255, 255, 0.02);
+  font-weight: 600;
+}
+
+.compareHead {
+  text-align: center;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.15);
+  font-size: 0.55rem;
+  letter-spacing: 0.1em;
+}
+
+.compareVal {
+  text-align: center;
+  color: var(--white);
+}
+
+.openTelemetryBtn {
+  margin-left: auto;
+  font-family: var(--font-d);
+  font-size: 0.52rem;
+  letter-spacing: 0.1em;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  border-radius: 3px;
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--blue);
+  cursor: pointer;
+  font-weight: 700;
+  transition: background 0.15s, color 0.15s;
+}
+
+.openTelemetryBtn:hover {
+  background: rgba(59, 130, 246, 0.18);
+  color: var(--white);
+}
+
+.openTelemetryBtn:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+
+/* ── Sector bars ── */
+
+.sectorRows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.5rem 0 0.75rem;
+  font-family: var(--font-d);
+  font-size: 0.55rem;
+}
+
+.sectorRow {
+  display: grid;
+  grid-template-columns: 28px 1fr 1fr 140px;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.sectorLabel {
+  color: var(--grey-light);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.sectorBarWrap {
+  position: relative;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.sectorBar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  opacity: 0.85;
+  transition: width 0.2s;
+}
+
+.sectorBarLabel {
+  position: absolute;
+  right: 0.35rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--white);
+  font-weight: 700;
+  font-size: 0.5rem;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+}
+
+.sectorDelta {
+  font-weight: 700;
+  text-align: right;
+  font-size: 0.55rem;
+}
+
+.sectorCum {
+  margin-left: 0.3rem;
+  color: var(--grey);
+  font-weight: 400;
+  font-size: 0.45rem;
+}
+
+.compareNote {
+  margin-top: 0.4rem;
+  padding: 0.4rem 0.6rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-left: 2px solid var(--orange);
+  color: var(--grey-light);
+  font-family: var(--font-d);
+  font-size: 0.5rem;
+  letter-spacing: 0.05em;
+  border-radius: 3px;
+}
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  .table {
+    font-size: 0.52rem;
+  }
+  .table thead th,
+  .table tbody td {
+    padding: 0.25rem 0.35rem;
+  }
+  .lapCell {
+    padding-left: 0.8rem !important;
+  }
+  .compareGrid {
+    grid-template-columns: 100px repeat(3, minmax(80px, 1fr));
+    font-size: 0.55rem;
+  }
+}

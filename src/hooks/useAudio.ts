@@ -21,7 +21,16 @@ export function useAudio() {
   useEffect(() => {
     const activate = () => {
       if (!ctxRef.current) {
-        ctxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        // Safari < 14 shipped AudioContext under `webkitAudioContext`.
+        // It's not part of the stock `Window` typings, so declare a narrow
+        // shape instead of using `any`.
+        type AudioCtor = typeof AudioContext;
+        const w = window as unknown as {
+          AudioContext?: AudioCtor;
+          webkitAudioContext?: AudioCtor;
+        };
+        const Ctor = w.AudioContext ?? w.webkitAudioContext;
+        if (Ctor) ctxRef.current = new Ctor();
       }
       document.removeEventListener('click', activate);
       document.removeEventListener('keydown', activate);

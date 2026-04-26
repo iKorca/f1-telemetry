@@ -13,6 +13,9 @@ export interface TelemetryFrame {
   ln: number;
   p: number;
   ts: [number, number, number, number];
+  ti: [number, number, number, number]; // tyre inner temperature [RL, RR, FL, FR]
+  et: number;                           // engine temperature
+  tw: [number, number, number, number]; // tyre wear % [RL, RR, FL, FR]
   fl: number;
   er: number;
   em: number;  // ERS deploy mode: 0=none, 1=medium, 2=hotlap, 3=overtake
@@ -33,8 +36,10 @@ export interface RecordedLap {
   maxSpeed: number;
   avgThrottle: number;
   avgBrake: number;
-  startFrameIdx: number;
-  endFrameIdx: number;
+  // Nullable because the recorder's ring-buffer trim path sets these to
+  // null when the associated frames were evicted (long sessions).
+  startFrameIdx: number | null;
+  endFrameIdx: number | null;
   setupLapRef: number | null;
   deleted?: boolean;
   notes?: string;

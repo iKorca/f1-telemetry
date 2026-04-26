@@ -10,6 +10,19 @@ interface UPlotChartProps {
   plugins?: uPlot.Plugin[];
 }
 
+/**
+ * Share the same cursor + x-scale across several charts. Charts opt in by
+ * passing `cursor: { sync: withSync('practice') }` in their options — every
+ * chart with the same key highlights the same X on hover and zooms together.
+ */
+export function withSync(key: string, matchX = true): uPlot.Cursor.Sync {
+  return {
+    key,
+    setSeries: true,
+    match: [matchX ? (a: string, b: string) => a === b : () => false, () => false],
+  } as unknown as uPlot.Cursor.Sync;
+}
+
 // ─── Scale sync registry ──────────────────────────────────────────────────────
 // Charts sharing the same cursor.sync.key will also share x-scale (zoom + pan).
 
@@ -142,20 +155,24 @@ function UPlotChart({ options, data, width, height, plugins }: UPlotChartProps) 
     return (options.cursor as uPlot.Cursor | undefined)?.sync?.key ?? '';
   }, [options.cursor]);
 
-  // Stable key: recreate chart when series structure, scales, axes, or sync config changes
+  // Stable key: recreate chart when series structure, scales, axes, title or
+  // sync config changes. uPlot bakes these properties in at init time —
+  // setData() can't hot-swap them, so we must rebuild the chart instance.
   const structureKey = useMemo(() => {
-    // Capture scale directions (e.g. position chart uses dir:-1)
     const scalesKey = options.scales
       ? Object.entries(options.scales)
           .map(([k, v]) => `${k}:${(v as Record<string, unknown>)?.dir ?? 0}`)
           .join(',')
       : '';
-    // Capture axis labels so chart recreates when metric changes
     const axesKey = options.axes
       ? (options.axes as Array<{ label?: string }>).map((a) => a?.label || '').join(',')
       : '';
-    return `${seriesCount}-${height ?? 300}-${syncKey}-${scalesKey}-${axesKey}`;
-  }, [seriesCount, height, syncKey, options.scales, options.axes]);
+    const seriesKey = options.series
+      ? (options.series as Array<{ label?: string }>).map((s) => s?.label || '').join(',')
+      : '';
+    const titleKey = (options as { title?: string }).title || '';
+    return `${seriesCount}-${height ?? 300}-${syncKey}-${scalesKey}-${axesKey}-${seriesKey}-${titleKey}`;
+  }, [seriesCount, height, syncKey, options.scales, options.axes, options.series, options.title]);
 
   // Create/recreate chart when structure changes
   useEffect(() => {
