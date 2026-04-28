@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useTimingStore } from '@/store/timingStore';
 import { useSessionInfoStore } from '@/store/sessionInfoStore';
@@ -7,6 +7,12 @@ import { deltaMsAtDistance } from '@/lib/lapUtils';
 import styles from './SecondaryDashboard.module.css';
 
 type Mode = 'live' | 'last';
+
+/** Live-delta refresh rate — slow enough to read at speed, fast enough
+ *  to catch sector-boundary corrections. The store still updates at
+ *  60 Hz so other consumers (DeltaBar, race-engineer panels) get fresh
+ *  values; only this big tile's display is throttled. */
+const LIVE_TICK_MS = 1000;
 
 /**
  * Delta vs the player's PB lap.
@@ -19,27 +25,50 @@ type Mode = 'live' | 'last';
  *
  * Before a PB is set (or until we have a usable PB trace) the LIVE panel
  * falls back to the LAST delta so the driver isn't shown misleading numbers.
+ *
+ * The big number throttles to 1 Hz so the digits don't flicker at racing
+ * speed. Per-packet updates were too noisy to read in peripheral vision.
  */
 export default function BigDeltaTile() {
   const [mode, setMode] = useState<Mode>('live');
 
-  const { bestLapMs, lastLapMs, currentLapTimeMs, currentLapDistance, pbLapTrace, pbTotalMs } =
-    useTimingStore(
-      useShallow((s) => ({
-        bestLapMs: s.bestLapMs,
-        lastLapMs: s.lastLapMs,
-        currentLapTimeMs: s.currentLapTimeMs,
-        currentLapDistance: s.currentLapDistance,
-        pbLapTrace: s.pbLapTrace,
-        pbTotalMs: s.pbTotalMs,
-      })),
-    );
+  // Slow-moving fields stay subscribed (changes only on PB transition,
+  // session reset, or lap finish). The fast-moving currentLapTimeMs /
+  // currentLapDistance are read via getState() inside the 1 Hz tick to
+  // avoid a per-packet rerender of this tile.
+  const { bestLapMs, lastLapMs, pbLapTrace, pbTotalMs } = useTimingStore(
+    useShallow((s) => ({
+      bestLapMs: s.bestLapMs,
+      lastLapMs: s.lastLapMs,
+      pbLapTrace: s.pbLapTrace,
+      pbTotalMs: s.pbTotalMs,
+    })),
+  );
   const trackLength = useSessionInfoStore((s) => s.trackLength);
 
-  const liveDeltaMs = useMemo<number | null>(
-    () => deltaMsAtDistance(pbLapTrace, pbTotalMs, currentLapTimeMs, currentLapDistance, trackLength),
-    [pbLapTrace, pbTotalMs, currentLapTimeMs, currentLapDistance, trackLength],
-  );
+  // 1 Hz tick — bumps state to force a recompute of the live delta.
+  // Mounted unconditionally so the deps array is stable across renders.
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), LIVE_TICK_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  const liveDeltaMs = useMemo<number | null>(() => {
+    const { currentLapTimeMs, currentLapDistance } = useTimingStore.getState();
+    return deltaMsAtDistance(
+      pbLapTrace,
+      pbTotalMs,
+      currentLapTimeMs,
+      currentLapDistance,
+      trackLength,
+    );
+    // `tick` drives the recompute cadence; the rest are dependency-tracked
+    // because they change rarely and the user expects an immediate redraw
+    // when (e.g.) a new PB locks in mid-lap.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick, pbLapTrace, pbTotalMs, trackLength]);
+
 
   // LAST delta: previous full lap minus PB. Same suppression rule as the
   // live DeltaBar — when the just-finished lap was faster but its trace was
@@ -73,26 +102,34 @@ export default function BigDeltaTile() {
           ? 'var(--red)'
           : 'var(--white)';
 
+  // Two decimal places — three was over-precise for peripheral reading at
+  // racing speed and made the trailing digit flicker even on the 1 Hz
+  // tick. Two digits is the F1-broadcast convention.
   const text =
     deltaMs == null
       ? noPB
         ? 'no PB yet'
         : '—'
-      : `${deltaMs >= 0 ? '+' : '−'}${(Math.abs(deltaMs) / 1000).toFixed(3)}s`;
+      : `${deltaMs >= 0 ? '+' : '−'}${(Math.abs(deltaMs) / 1000).toFixed(2)}s`;
 
   // Dev-only diagnostic: shows the raw inputs to the interpolation so it's
   // obvious when the browser is running stale code or the PB trace is
-  // mis-aligned. Vite strips this branch from production via dead-code
-  // elimination on `import.meta.env.DEV`.
+  // mis-aligned. Reads currentLapTimeMs / currentLapDistance via
+  // `getState()` so this tile doesn't subscribe to per-packet store
+  // changes — the tick driver above is the only render trigger. Vite
+  // strips this branch from production via dead-code elimination on
+  // `import.meta.env.DEV`.
   const diag = useMemo(() => {
     if (!import.meta.env.DEV) return null;
+    const { currentLapTimeMs, currentLapDistance } = useTimingStore.getState();
     if (!pbLapTrace || pbLapTrace.length === 0) {
       return `trace=0  dist=${Math.round(currentLapDistance)}m  t=${currentLapTimeMs}ms`;
     }
     const first = pbLapTrace[0];
     const last = pbLapTrace[pbLapTrace.length - 1];
     return `trace=${pbLapTrace.length}  d∈[${Math.round(first.d)}..${Math.round(last.d)}]  pbTot=${(pbTotalMs / 1000).toFixed(3)}s  here d=${Math.round(currentLapDistance)}m t=${(currentLapTimeMs / 1000).toFixed(3)}s`;
-  }, [pbLapTrace, pbTotalMs, currentLapDistance, currentLapTimeMs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick, pbLapTrace, pbTotalMs]);
 
   return (
     <>

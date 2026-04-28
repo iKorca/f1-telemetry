@@ -130,7 +130,10 @@
 /* Each corner: label LEFT, huge percentage RIGHT — readable from peripheral
    vision. The wear-gradient colour is supplied via `--tyre-color` so all
    three uses (border, fill, number) read from one source instead of three
-   separate inline style props. */
+   separate inline style props.
+   Container scope is the CORNER (not the tile), so font sizing scales
+   with corner width — the 3-column dashboard layout shrunk the tile
+   without proportionally shrinking the digits, and they clipped. */
 .tyreCorner {
   position: relative;
   background: rgba(255, 255, 255, 0.03);
@@ -141,8 +144,12 @@
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.3rem 0.9rem;
+  gap: 0.4rem;
+  padding: 0.25rem 0.7rem;
+  container-type: inline-size;
+  container-name: tyreCorner;
+  min-width: 0;
+  min-height: 0;
 }
 
 /* Vertical fill bar that rises with wear %. */
@@ -160,33 +167,41 @@
 .tyreLabel {
   position: relative;
   font-family: var(--font-d);
-  /* Bumped to ~3rem cap so the label stays legible from the side at the
-     dominant 144 px digit size — peripheral threshold is ~2.5–3×.
-     Container-relative scaling so single-column reflows still scale. */
-  font-size: clamp(1.2rem, 7cqi, 3rem);
+  /* Container-scoped to the CORNER, so the label tracks the cell rather
+     than the whole tile. Min stays legible on a tight 3-column layout;
+     max keeps the ~3× ratio against the digit when the cell is wide. */
+  font-size: clamp(0.9rem, 14cqi, 2rem);
   color: var(--grey-light);
-  letter-spacing: 0.15em;
+  letter-spacing: 0.12em;
   font-weight: 700;
   flex: 0 0 auto;
 }
 
+/* Digit sized off corner width (cqi). 22cqi gives roughly cell-height
+   parity for two digits with the trailing % (cap height ≈ font-size,
+   typical corner aspect ≈ 3:1). 5rem cap prevents overflow on wide
+   single-column reflows. Letter-spacing -0.04em squeezes the two-digit
+   pair so "13%" fits comfortably inside the right edge. */
 .tyreNumber {
   position: relative;
   font-family: var(--font-d);
-  font-size: clamp(3rem, 32cqi, 9rem);
+  font-size: clamp(2rem, 22cqi, 5rem);
   font-weight: 700;
   line-height: 1;
+  letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
   flex: 1 1 auto;
+  min-width: 0;
   color: var(--tyre-color, var(--white));
 }
 
 .tyreNumberPct {
-  font-size: 0.32em;
+  font-size: 0.4em;
   opacity: 0.7;
-  margin-left: 0.08em;
+  margin-left: 0.1em;
+  letter-spacing: 0;
 }
 
 /* ───────────── Compound Strategy tile ───────────── */
