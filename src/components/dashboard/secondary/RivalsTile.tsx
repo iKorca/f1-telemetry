@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useTimingStore } from '@/store/timingStore';
 import { fmtTime } from '@/lib/formatters';
-import { wearColor } from '@/lib/colors';
+import { wearColor, getCompoundColor } from '@/lib/colors';
 import { ERS_FULL_ENERGY } from '@/lib/constants';
 import type {
   LapData,
@@ -21,12 +21,27 @@ interface RivalSnapshot {
   name: string;
   teamId: number;
   position: number;
-  ersPct: number;          // 0–100
-  ersMode: string;         // "Medium" / "Hotlap" / "Overtake"
-  gapMs: number;           // positive = ahead of player, negative = behind
+  ersPct: number;            // 0–100
+  ersMode: string;           // "Medium" / "Hotlap" / "Overtake"
+  gapMs: number;             // positive = ahead of player, negative = behind
   lastLapMs: number;
-  maxTyreWear: number;     // worst of FL/FR/RL/RR
-  maxWingDamage: number;   // worst of FL wing / FR wing
+  maxTyreWear: number;       // worst of FL/FR/RL/RR
+  maxWingDamage: number;     // worst of FL wing / FR wing
+  tyreCompoundName: string;  // SOFT / MEDIUM / HARD / INTER / WET
+}
+
+/**
+ * Single-letter tyre code (S/M/H/I/W) for the compact rival display.
+ * Returns "—" for unknown so the cell doesn't render a stray empty span.
+ */
+function tyreLetter(name: string): string {
+  const u = (name || '').toUpperCase();
+  if (u === 'SOFT' || u.startsWith('S ')) return 'S';
+  if (u === 'MEDIUM' || u === 'M') return 'M';
+  if (u === 'HARD' || u === 'H') return 'H';
+  if (u === 'INTER' || u === 'INTERMEDIATE' || u === 'I') return 'I';
+  if (u === 'WET' || u === 'W') return 'W';
+  return '—';
 }
 
 /**
@@ -104,6 +119,9 @@ function RivalRow({ rival, role }: { rival: RivalSnapshot | null; role: 'AHEAD' 
     : rival.maxWingDamage >= 20 ? styles.rivalWarn
     : null;
 
+  const tyreT = tyreLetter(rival.tyreCompoundName);
+  const tyreCol = getCompoundColor(rival.tyreCompoundName);
+
   return (
     <div className={styles.rivalRow}>
       <div className={styles.rivalRoleLabel}>{role}</div>
@@ -114,29 +132,42 @@ function RivalRow({ rival, role }: { rival: RivalSnapshot | null; role: 'AHEAD' 
         <span className={styles.rivalGap}>{gapText}</span>
       </div>
 
+      {/* LAST gets its own line — lap-time is the widest value. */}
+      <RivalStat
+        label="LAST"
+        value={rival.lastLapMs > 0 ? fmtTime(rival.lastLapMs) : '—'}
+      />
+
+      {/* ERS dominates: full-width block with bigger value, much bigger
+          deploy mode caption, and a full-width gradient bar. */}
+      <div className={styles.rivalErsBlock}>
+        <div className={styles.rivalStatLabel}>ERS</div>
+        <div className={styles.rivalErsRow}>
+          <span className={styles.rivalErsValue}>{Math.round(rival.ersPct)}%</span>
+          <span className={styles.rivalErsMode}>{rival.ersMode || '—'}</span>
+        </div>
+        <ErsBar pct={rival.ersPct} />
+      </div>
+
+      {/* TYRE (with compound letter) shares a row with F-WING when wing
+          damage is present; otherwise TYRE sits on its own. */}
       <div className={styles.rivalGrid}>
-        {/* LAST gets its own row — the lap time is the widest value
-            ("1:30.089") and it'd squeeze ERS / TYRE if they shared a row. */}
-        <RivalStat
-          label="LAST"
-          value={rival.lastLapMs > 0 ? fmtTime(rival.lastLapMs) : '—'}
-          className={styles.rivalStatFull}
-        />
-        <RivalStat label="ERS" value={`${Math.round(rival.ersPct)}%`} subtext={rival.ersMode || ''}>
-          <ErsBar pct={rival.ersPct} />
-        </RivalStat>
-        <RivalStat
-          label="TYRE"
-          value={`${Math.round(rival.maxTyreWear)}%`}
-          valueColor={wearColor(rival.maxTyreWear)}
-        />
-        {/* Front wing only when present — sits on its own row spanning
-            the full width so it reads as a separate warning banner. */}
+        <div className={styles.rivalStat}>
+          <div className={styles.rivalStatLabel}>TYRE</div>
+          <div className={styles.rivalStatValue}>
+            <span className={styles.rivalTyreLetter} style={{ color: tyreCol }}>
+              {tyreT}
+            </span>
+            <span style={{ color: wearColor(rival.maxTyreWear) }}>
+              {Math.round(rival.maxTyreWear)}%
+            </span>
+          </div>
+        </div>
         {rival.maxWingDamage > 0 && (
           <RivalStat
             label="F-WING"
             value={`${Math.round(rival.maxWingDamage)}%`}
-            className={`${styles.rivalStatFull} ${wingTone ?? ''}`}
+            className={wingTone ?? undefined}
           />
         )}
       </div>
@@ -258,6 +289,7 @@ function buildSnapshot(
     lastLapMs: lap?.lastLapTimeInMS ?? 0,
     maxTyreWear,
     maxWingDamage,
+    tyreCompoundName: carStatus?.tyreCompoundName ?? '',
   };
 }
 

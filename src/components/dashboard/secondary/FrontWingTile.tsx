@@ -46,17 +46,16 @@ function DamageRow({ label, pct, color }: { label: string; pct: number; color: s
         alignItems: 'baseline',
         justifyContent: 'space-between',
         fontFamily: 'var(--font-d)',
-        fontSize: '0.62rem',
+        fontSize: 'clamp(0.7rem, 1.4vw, 0.95rem)',
         letterSpacing: '0.12em',
         color: 'var(--grey-light)',
-        marginBottom: '0.25rem',
+        marginBottom: '0.3rem',
       }}>
         <span>{label}</span>
         <span style={{
-          // ~2× the previous size and scales with viewport for the glance
-          // screen (driver reads this at a distance).
+          // Bumped to track the rest of the glance tiles' larger numbers.
           color: val > 0 ? color : 'var(--white)',
-          fontSize: 'clamp(1.4rem, 3.2vw, 2rem)',
+          fontSize: 'clamp(1.8rem, 4vw, 2.8rem)',
           fontWeight: 700,
           fontVariantNumeric: 'tabular-nums',
           lineHeight: 1,
@@ -65,7 +64,7 @@ function DamageRow({ label, pct, color }: { label: string; pct: number; color: s
         </span>
       </div>
       <div style={{
-        height: 10,
+        height: 12,
         background: 'rgba(255, 255, 255, 0.06)',
         borderRadius: 3,
         overflow: 'hidden',
