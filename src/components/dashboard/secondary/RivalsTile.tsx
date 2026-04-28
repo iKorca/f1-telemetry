@@ -115,7 +115,13 @@ function RivalRow({ rival, role }: { rival: RivalSnapshot | null; role: 'AHEAD' 
       </div>
 
       <div className={styles.rivalGrid}>
-        <RivalStat label="LAST" value={rival.lastLapMs > 0 ? fmtTime(rival.lastLapMs) : '—'} />
+        {/* LAST gets its own row — the lap time is the widest value
+            ("1:30.089") and it'd squeeze ERS / TYRE if they shared a row. */}
+        <RivalStat
+          label="LAST"
+          value={rival.lastLapMs > 0 ? fmtTime(rival.lastLapMs) : '—'}
+          className={styles.rivalStatFull}
+        />
         <RivalStat label="ERS" value={`${Math.round(rival.ersPct)}%`} subtext={rival.ersMode || ''}>
           <ErsBar pct={rival.ersPct} />
         </RivalStat>
@@ -124,12 +130,13 @@ function RivalRow({ rival, role }: { rival: RivalSnapshot | null; role: 'AHEAD' 
           value={`${Math.round(rival.maxTyreWear)}%`}
           valueColor={wearColor(rival.maxTyreWear)}
         />
-        {/* Front wing only when present — keeps the cell quiet otherwise. */}
+        {/* Front wing only when present — sits on its own row spanning
+            the full width so it reads as a separate warning banner. */}
         {rival.maxWingDamage > 0 && (
           <RivalStat
             label="F-WING"
             value={`${Math.round(rival.maxWingDamage)}%`}
-            className={wingTone ?? undefined}
+            className={`${styles.rivalStatFull} ${wingTone ?? ''}`}
           />
         )}
       </div>

@@ -11,9 +11,12 @@ import { useUIStore } from '@/store/uiStore';
 type Screen = 0 | 1;
 
 /**
- * Main dashboard tab. Now supports two screens:
- *   0 — 3-column live dashboard (LeftPanel | CenterPanel | RightPanel)
- *   1 — secondary "glance" screen with large-format tiles
+ * Main dashboard tab. Two screens:
+ *   0 — "Glance" big-format tiles (delta, wing, tyre wear, compound,
+ *       rivals). Default — this is what the user wants in front of them
+ *       while driving.
+ *   1 — 3-column "Live" dashboard (LeftPanel | CenterPanel | RightPanel)
+ *       with the detailed telemetry stack.
  *
  * Swipe / arrow-key / click-dot navigation. The active screen lives in local
  * state; keyboard `[` / `]` cycle between them when the Dashboard tab is
@@ -38,13 +41,13 @@ function DashboardTab() {
   return (
     <div className={styles.wrapper}>
       {screen === 0 ? (
+        <SecondaryDashboard />
+      ) : (
         <div className={styles.dashboardGrid}>
           <LeftPanel />
           <CenterPanel />
           <RightPanel />
         </div>
-      ) : (
-        <SecondaryDashboard />
       )}
       <RelativeBar />
       <TyreTempAlert />
@@ -81,8 +84,8 @@ function DashboardScreenNav({ screen, onChange }: { screen: Screen; onChange: (s
       >
         ‹
       </button>
-      <ScreenDot active={screen === 0} label="Live" onClick={() => onChange(0)} />
-      <ScreenDot active={screen === 1} label="Glance" onClick={() => onChange(1)} />
+      <ScreenDot active={screen === 0} label="Glance" onClick={() => onChange(0)} />
+      <ScreenDot active={screen === 1} label="Live" onClick={() => onChange(1)} />
       <button
         type="button"
         aria-label="Next dashboard screen"
