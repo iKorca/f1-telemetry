@@ -113,7 +113,7 @@
 }
 
 .compact .table {
-  font-size: 0.52rem;
+  font-size: 0.65rem;
 }
 
 .headerRow {
@@ -136,17 +136,18 @@
   font-size: 0.5rem;
   color: var(--grey);
   letter-spacing: 0.12em;
+  line-height: 1.15;
   border-bottom: 1px solid var(--border);
   background: var(--panel);
   cursor: grab;
   user-select: none;
-  white-space: nowrap;
+  white-space: pre-line;
   transition: background 0.15s;
 }
 
 .compact .headerCell {
   padding: 0.3rem 0.45rem;
-  font-size: 0.46rem;
+  font-size: 0.58rem;
 }
 
 .headerCell:active {
@@ -168,8 +169,8 @@
 }
 
 .headerLabel {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: pre-line;
+  overflow-wrap: break-word;
 }
 
 .sortIndicator {

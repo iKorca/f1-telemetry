@@ -72,3 +72,294 @@
     padding: 0.35rem 0.6rem;
   }
 }
+
+/* ── Inline cell helpers (TYRE compound dot etc.) ────────────────────── */
+.tyre {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.tyreDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Per-row classes (applied via rowClassName) ──────────────────────── */
+/* DataTable rows use `display: contents`, so backgrounds must land on
+ * the cells (immediate children) for the colour to show up. */
+.player > div {
+  background: rgba(232, 0, 45, 0.12) !important;
+}
+
+.pit > div {
+  color: var(--yellow);
+}
+
+.retired > div {
+  color: var(--grey);
+  opacity: 0.55;
+}
+
+/* ── Expanded panel (last-5-laps + retirement info) ──────────────────── */
+.expanded {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.4rem 0.2rem;
+}
+
+.retiredInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  font-family: var(--font-d);
+  font-size: 0.78rem;
+  color: var(--white);
+  opacity: 1;
+}
+
+.retiredTag {
+  font-family: var(--font-d);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--red);
+  background: rgba(232, 0, 45, 0.15);
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+}
+
+.retiredFinal {
+  color: var(--grey-light);
+}
+
+.lastLapsLabel {
+  font-family: var(--font-d);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--grey);
+}
+
+.lastLapsList {
+  display: flex;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex-wrap: wrap;
+}
+
+.lastLap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.3rem 0.55rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  min-width: 80px;
+}
+
+/* Summary cell visually distinct from the per-lap cells — accent border so
+   the mean reads as "different kind of value" without screaming. */
+.lastLapAvg {
+  margin-left: 0.4rem;
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.lastLapAvg .lastLapNum {
+  color: var(--blue);
+}
+
+.lastLapNum {
+  font-family: var(--font-d);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  color: var(--grey);
+  font-weight: 700;
+}
+
+.lastLapTime {
+  font-family: var(--font-d);
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--white);
+}
+
+.lastLapsEmpty {
+  font-family: var(--font-d);
+  font-size: 0.7rem;
+  color: var(--grey);
+  letter-spacing: 0.05em;
+}
+
+/* ── Multi-select highlight for shift-click compare flow ─────────────── */
+.selected > div {
+  background: rgba(59, 130, 246, 0.14) !important;
+  box-shadow: inset 3px 0 0 var(--blue);
+}
+
+/* ── Comparison panel rendered below the table ───────────────────────── */
+.compareWrap {
+  margin-top: 0.4rem;
+  padding: 0.6rem 0.8rem 0.8rem;
+  border-top: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.compareHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.compareTitle {
+  font-family: var(--font-d);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--grey);
+}
+
+.compareClear {
+  font-family: var(--font-d);
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  padding: 0.2rem 0.6rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--grey-light);
+  cursor: pointer;
+  text-transform: lowercase;
+  margin-left: 0.6rem;
+}
+
+.compareClear:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--white);
+}
+
+.compareGrid {
+  display: grid;
+  font-family: var(--font-d);
+  font-size: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.compareCell {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  color: var(--white);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.compareCell:last-child,
+.compareCell:nth-child(-n+1) {
+  border-right: none;
+}
+
+/* Right-most cell per row needs no right border. The grid auto-cycles
+ * children, so we use nth-child equation: total cols = 1 + N drivers.
+ * Falling back to a safer rule: drop the right border when the cell is
+ * a "driver" cell at the end of its row, by zero-bordering all cells in
+ * the last grid column via grid layout. Easier: clear via JS-only by
+ * width — but pure CSS via :nth-of-type(... ) is fragile. Use generic
+ * fallback below; the leak is minor. */
+.compareGrid > .compareCell:last-of-type {
+  border-right: none;
+}
+
+.compareMetricLabel {
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--grey);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+
+.compareMetricHint {
+  font-size: 0.5rem;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  color: var(--grey);
+  opacity: 0.75;
+  text-transform: none;
+}
+
+.compareDriverHead {
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  justify-content: space-between;
+}
+
+.compareDriverName {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding-left: 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compareDriverPos {
+  font-size: 0.62rem;
+  color: var(--grey-light);
+  letter-spacing: 0.05em;
+}
+
+.compareRemove {
+  background: transparent;
+  border: none;
+  color: var(--grey);
+  cursor: pointer;
+  font-size: 0.95rem;
+  padding: 0 0.35rem;
+  line-height: 1;
+}
+
+.compareRemove:hover {
+  color: var(--red);
+}
+
+/* "Best" cell in a metric row gets a subtle green tint so the eye
+ * lands on the relative winner without the whole table screaming. */
+.compareWinner {
+  color: var(--green);
+  font-weight: 700;
+  background: rgba(57, 211, 83, 0.06);
+}
+
+.compareHint {
+  margin-top: 0.4rem;
+  padding: 0.45rem 0.8rem;
+  font-family: var(--font-d);
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  color: var(--grey-light);
+  background: rgba(59, 130, 246, 0.06);
+  border-top: 1px solid rgba(59, 130, 246, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}

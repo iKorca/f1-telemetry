@@ -1,6 +1,6 @@
 .bar {
   margin: 0;
-  padding: 0.6rem 0.8rem;
+  padding: 0.2rem 0.8rem;
   background: var(--panel);
   border-top: 1px solid var(--border);
 }
@@ -8,16 +8,17 @@
 .content {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .car {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.2rem 0.5rem;
+  padding: 0 0.5rem;
   border-radius: 3px;
-  font-size: 0.68rem;
+  font-size: 0.95rem;
+  line-height: 1.2;
   font-family: var(--font-d);
   background: #0d0d1a;
 }
@@ -63,8 +64,8 @@
   }
 
   .car {
-    font-size: 0.56rem;
-    padding: 0.15rem 0.4rem;
+    font-size: 0.8rem;
+    padding: 0 0.4rem;
     gap: 0.35rem;
   }
 
@@ -79,6 +80,6 @@
 
 @media (min-width: 769px) and (max-width: 1024px) {
   .car {
-    font-size: 0.62rem;
+    font-size: 0.92rem;
   }
 }

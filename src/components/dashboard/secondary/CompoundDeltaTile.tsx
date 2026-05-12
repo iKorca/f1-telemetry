@@ -130,11 +130,6 @@ export default function CompoundDeltaTile() {
               </div>
             ))}
           </div>
-          {slots.some((s) => s.changeFromNow) && (
-            <div className={styles.csChangeWarning}>
-              ⚠︎ TYRE CHANGE IN FORECAST
-            </div>
-          )}
         </div>
       )}
     </>

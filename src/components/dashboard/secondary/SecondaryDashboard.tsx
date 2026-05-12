@@ -4,6 +4,7 @@ import FrontWingTile from './FrontWingTile';
 import BigTyreWearTile from './BigTyreWearTile';
 import CompoundDeltaTile from './CompoundDeltaTile';
 import RivalsTile from './RivalsTile';
+import RelativeBar from '../RelativeBar';
 import styles from './SecondaryDashboard.module.css';
 
 /**
@@ -28,6 +29,7 @@ function SecondaryDashboard() {
       <div className={`${styles.tile} ${styles.gridTyre}`}><BigTyreWearTile /></div>
       <div className={`${styles.tile} ${styles.gridCompound}`}><CompoundDeltaTile /></div>
       <div className={`${styles.tile} ${styles.gridRivals}`}><RivalsTile /></div>
+      <div className={styles.gridRelative}><RelativeBar /></div>
     </div>
   );
 }

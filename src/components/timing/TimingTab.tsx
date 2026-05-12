@@ -67,11 +67,11 @@ function useTimingColumns(isLaptimeSession: boolean): DataColumn<TimingRow>[] {
     };
 
     return [
-      { id: 'pos', header: 'POS', accessor: (r) => r.lapData.carPosition, numeric: true, width: '48px' },
+      { id: 'pos', header: 'POS', accessor: (r) => r.lapData.carPosition, numeric: true, width: '40px' },
       {
         id: 'driver', header: 'DRIVER',
         accessor: (r) => r.participant.name,
-        width: '140px',
+        width: '120px',
         render: (r) => (
           <span style={{ borderLeft: `3px solid ${getTeamColor(r.participant.teamId)}`, paddingLeft: '0.5rem', fontWeight: 700 }}>
             {r.participant.name}
@@ -80,7 +80,7 @@ function useTimingColumns(isLaptimeSession: boolean): DataColumn<TimingRow>[] {
       },
       {
         id: 'gapLeader',
-        header: isLaptimeSession ? 'GAP TO P1' : 'GAP LEADER',
+        header: isLaptimeSession ? 'GAP\nTO P1' : 'GAP\nLEADER',
         accessor: (r) => {
           if (isLaptimeSession) {
             if (r.qualiBestMs === 0 || r.sessionBestMs === 0) return Number.MAX_SAFE_INTEGER;
@@ -99,7 +99,7 @@ function useTimingColumns(isLaptimeSession: boolean): DataColumn<TimingRow>[] {
         },
       },
       {
-        id: 'gapAhead', header: 'GAP AHEAD',
+        id: 'gapAhead', header: 'GAP\nAHEAD',
         accessor: (r) => {
           if (isLaptimeSession) {
             if (r.qualiBestMs === 0 || r.aheadBestMs === 0) return Number.MAX_SAFE_INTEGER;
@@ -118,13 +118,13 @@ function useTimingColumns(isLaptimeSession: boolean): DataColumn<TimingRow>[] {
         },
       },
       {
-        id: 'lastLap', header: 'LAST LAP',
+        id: 'lastLap', header: 'LAST\nLAP',
         accessor: (r) => r.lapData.lastLapTimeInMS || Number.MAX_SAFE_INTEGER,
         numeric: true,
         render: (r) => (r.lapData.lastLapTimeInMS > 0 ? fmtTime(r.lapData.lastLapTimeInMS) : '—'),
       },
       {
-        id: 'bestLap', header: 'BEST LAP',
+        id: 'bestLap', header: 'BEST\nLAP',
         accessor: (r) => (isLaptimeSession ? r.qualiBestMs : 0) || Number.MAX_SAFE_INTEGER,
         numeric: true,
         render: (r) => {
@@ -187,7 +187,7 @@ function useTimingColumns(isLaptimeSession: boolean): DataColumn<TimingRow>[] {
         id: 'pits', header: 'PITS',
         accessor: (r) => r.lapData.numPitStops || 0,
         numeric: true,
-        width: '56px',
+        width: '44px',
       },
       {
         id: 'status', header: 'STATUS',

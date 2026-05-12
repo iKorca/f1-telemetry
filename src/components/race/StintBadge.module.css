@@ -2,8 +2,8 @@
   display: flex;
   height: 14px;
   gap: 1px;
-  min-width: 60px;
-  max-width: 200px;
+  min-width: 120px;
+  max-width: 400px;
 }
 
 .stintSeg {

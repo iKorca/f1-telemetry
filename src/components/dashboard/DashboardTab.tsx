@@ -43,13 +43,15 @@ function DashboardTab() {
       {screen === 0 ? (
         <SecondaryDashboard />
       ) : (
-        <div className={styles.dashboardGrid}>
-          <LeftPanel />
-          <CenterPanel />
-          <RightPanel />
-        </div>
+        <>
+          <div className={styles.dashboardGrid}>
+            <LeftPanel />
+            <CenterPanel />
+            <RightPanel />
+          </div>
+          <RelativeBar />
+        </>
       )}
-      <RelativeBar />
       <TyreTempAlert />
       <DashboardScreenNav screen={screen} onChange={setScreen} />
     </div>

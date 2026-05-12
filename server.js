@@ -78,6 +78,10 @@ function makeRaceState() {
       currentCompound: '', tyreAge: 0,
       stints: [],
       numPitStops: 0,
+      // Server-only: tracks the pit-stop count from the *previous* packet so
+      // we can detect pit-onto-same-compound (medium → fresh medium) — the
+      // visual-compound check alone misses those, collapsing the stint bar.
+      _prevNumPitStops: 0,
       gapToLeaderMs: 0, gapToAheadMs: 0,
       driverStatus: 0, resultStatus: 0,
       lapTimes: [],
@@ -122,7 +126,8 @@ function updateRaceState() {
     car.gapToAheadMs  = lap.deltaToCarInFrontInMS || 0;
     car.driverStatus  = lap.driverStatus || 0;
     car.resultStatus  = lap.resultStatus || 0;
-    car.numPitStops   = lap.numPitStops || 0;
+    const newNumPitStops = lap.numPitStops || 0;
+    car.numPitStops   = newNumPitStops;
 
     // Detect lap completion
     const lastLapMs = lap.lastLapTimeInMS || 0;
@@ -139,14 +144,26 @@ function updateRaceState() {
       const compound = tyreName(st.visualTyreCompound, st.actualTyreCompound);
       car.tyreAge = st.tyresAgeLaps || 0;
 
-      // Detect compound change — but don't record a phantom stint if the
-      // previous compound reading was the parser's UNKNOWN fallback (first
-      // status packet for a car sometimes lands before compound is set).
-      // A spurious grey segment at the front of the Stint History column
-      // was the direct symptom of this.
       const prev = car.currentCompound;
       const valid = (c) => c && c !== 'UNKNOWN';
-      if (valid(prev) && prev !== compound) {
+
+      // Two ways a stint ends:
+      //   1. Compound CHANGED (medium → hard) — visual-compound diff.
+      //   2. Pit stop onto the SAME compound (medium → fresh medium).
+      //      Without this branch the bar collapses into a single segment
+      //      that misrepresents tyre age, since `prev === compound`.
+      const compoundChanged = valid(prev) && prev !== compound;
+      const pittedSameCompound =
+        newNumPitStops > car._prevNumPitStops && valid(prev) && prev === compound;
+
+      // Don't write stints from formation-lap / grid-procedure packets.
+      // The F1 game often flickers visualTyreCompound between SOFT and the
+      // actual race compound during the grid procedure, when currentLap is
+      // still 0 or 1. Without this guard we'd land a 1-lap phantom SOFT
+      // segment at L1 on every driver's stint bar.
+      const raceStarted = car.currentLap >= 2;
+
+      if ((compoundChanged || pittedSameCompound) && raceStarted) {
         car.stints.push({
           compound: prev,
           startLap: car.stints.length > 0
@@ -157,6 +174,8 @@ function updateRaceState() {
       }
       car.currentCompound = compound;
     }
+
+    car._prevNumPitStops = newNumPitStops;
   }
 
   raceStateDirty = true;

@@ -66,8 +66,8 @@ function RelativeBar() {
 
     cars.sort((a, b) => a.pos - b.pos);
     const playerIdx = cars.findIndex((c) => c.isPlayer);
-    const start = Math.max(0, playerIdx - 4);
-    const end = Math.min(cars.length, playerIdx + 5);
+    const start = Math.max(0, playerIdx - 2);
+    const end = Math.min(cars.length, playerIdx + 3);
     return cars.slice(start, end);
   }, [allLapData, allParticipants, allCarStatus, playerCarIndex]);
 

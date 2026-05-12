@@ -29,6 +29,7 @@ export default function DataTable<Row>(props: DataTableProps<Row>) {
     storageKey,
     initialSort,
     onRowClick,
+    onRowSelect,
     onRowContextMenu,
     renderExpanded,
     rowClassName,
@@ -201,16 +202,30 @@ export default function DataTable<Row>(props: DataTableProps<Row>) {
             return (
               <React.Fragment key={id}>
                 <div
-                  className={`${styles.row} ${rowClass} ${onRowClick ? styles.clickable : ''}`}
+                  className={`${styles.row} ${rowClass} ${onRowClick || onRowSelect || renderExpanded ? styles.clickable : ''}`}
                   role="row"
-                  tabIndex={onRowClick ? 0 : -1}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  tabIndex={onRowClick || onRowSelect || renderExpanded ? 0 : -1}
+                  onClick={(e) => {
+                    // Shift-click is reserved for multi-select compare flows.
+                    // If a select handler is wired, hand off and DON'T also
+                    // toggle expand — selecting and expanding at the same
+                    // time is jarring.
+                    if (e.shiftKey && onRowSelect) {
+                      onRowSelect(row, e);
+                      return;
+                    }
+                    if (onRowClick) onRowClick(row);
+                    else if (renderExpanded) toggleExpand(id);
+                  }}
                   onContextMenu={onRowContextMenu ? (e) => onRowContextMenu(row, e) : undefined}
                   onKeyDown={(e) => {
-                    if (!onRowClick) return;
+                    if (!onRowClick && !onRowSelect && !renderExpanded) return;
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      onRowClick(row);
+                      // Shift+Enter mirrors shift-click for keyboard users.
+                      if (e.shiftKey && onRowSelect) onRowSelect(row, e);
+                      else if (onRowClick) onRowClick(row);
+                      else toggleExpand(id);
                     }
                   }}
                 >

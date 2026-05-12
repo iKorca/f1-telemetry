@@ -18,17 +18,18 @@ export const PACKET_IDS = {
 
 export type PacketId = (typeof PACKET_IDS)[keyof typeof PACKET_IDS];
 
+// F1 25 official team palette (id ↔ team mapping per the F1 25 UDP spec).
 export const TEAM_COLORS: Record<number, string> = {
-  0: '#00d2be',
-  1: '#dc0000',
-  2: '#0600ef',
-  3: '#005aff',
-  4: '#0090ff',
-  5: '#006f62',
-  6: '#2b4562',
-  7: '#b6babd',
-  8: '#ff8700',
-  9: '#ff0000',
+  0: '#27f4d2', // Mercedes
+  1: '#e80020', // Ferrari
+  2: '#3671c6', // Red Bull
+  3: '#64c4ff', // Williams
+  4: '#229971', // Aston Martin
+  5: '#ff87bc', // Alpine
+  6: '#6692ff', // RB (VCARB)
+  7: '#b6babd', // Haas
+  8: '#ff8000', // McLaren
+  9: '#52e252', // Kick Sauber
   255: '#888888',
 } as const;
 

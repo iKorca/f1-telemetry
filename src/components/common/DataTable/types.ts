@@ -49,6 +49,12 @@ export interface DataTableProps<Row> {
   /** Initial sort if nothing is persisted. */
   initialSort?: SortSpec;
   onRowClick?: (row: Row) => void;
+  /**
+   * Fires on shift+click anywhere on the row instead of the default
+   * expand toggle. Designed for multi-select comparison flows; if you
+   * don't supply this, shift-click behaves like a normal click.
+   */
+  onRowSelect?: (row: Row, e: React.MouseEvent | React.KeyboardEvent) => void;
   onRowContextMenu?: (row: Row, e: React.MouseEvent) => void;
   /** Accordion content rendered as a full-width row below the parent. */
   renderExpanded?: (row: Row) => React.ReactNode;

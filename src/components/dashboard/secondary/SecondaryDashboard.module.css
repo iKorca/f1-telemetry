@@ -8,7 +8,7 @@
      - col 3 (RIVALS) gets a meaningfully bigger slice so driver names
        and the LAST/ERS/TYRE values read at racing speed. */
   grid-template-columns: 1.3fr 1.5fr 1.4fr;
-  grid-template-rows: 1fr 1fr;
+  grid-template-rows: 1fr 1fr auto;
   gap: 8px;
   padding: 8px;
   background: var(--border);
@@ -21,7 +21,8 @@
 .gridWing     { grid-column: 2; grid-row: 1; }
 .gridTyre     { grid-column: 1; grid-row: 2; }
 .gridCompound { grid-column: 2; grid-row: 2; }
-.gridRivals   { grid-column: 3; grid-row: 1 / span 2; }
+.gridRivals   { grid-column: 3; grid-row: 1 / span 3; }
+.gridRelative { grid-column: 1 / span 2; grid-row: 3; min-width: 0; overflow: hidden; }
 
 /* Each tile becomes a sizing context so child clamps can scale with TILE
    width via container-query units (cqi). Avoids the redundant
@@ -619,7 +620,7 @@
 @media (max-width: 900px) {
   .grid {
     grid-template-columns: 1fr;
-    grid-template-rows: repeat(5, minmax(200px, 1fr));
+    grid-template-rows: repeat(6, minmax(200px, 1fr));
   }
   /* Override the explicit row/column placements so each tile flows
      naturally into the next stacked slot. */
@@ -627,7 +628,8 @@
   .gridWing,
   .gridTyre,
   .gridCompound,
-  .gridRivals {
+  .gridRivals,
+  .gridRelative {
     grid-column: 1;
     grid-row: auto;
   }
