@@ -2,17 +2,19 @@ import React from 'react';
 import type { LapData, CarStatus, Participant } from '@shared/types';
 import { DRIVER_STATUS } from '@/lib/constants';
 import { fmtTime, fmtSector, fmtDelta } from '@/lib/formatters';
-import { getTeamColor } from '@/lib/colors';
+import { driverColor } from '@/lib/colors';
 import styles from './TimingRow.module.css';
 
-/** Timing-specific mapping: indices 0-1 show empty (use driverStatus instead). */
+/**
+ * m_resultStatus per the F1 UDP spec: 0 invalid, 1 inactive, 2 active,
+ * 3 finished, 4 DNF, 5 DSQ, 6 not classified, 7 retired. States 0-3 mean the car
+ * is still running, so they render empty and driverStatus is shown instead.
+ */
 const RESULT_STATUS: Record<number, string> = {
-  0: '',
-  1: '',
-  2: 'DNF',
-  3: 'DSQ',
-  4: 'NC',
-  5: 'RET',
+  4: 'DNF',
+  5: 'DSQ',
+  6: 'NC',
+  7: 'RET',
 };
 
 interface TimingRowProps {
@@ -56,7 +58,7 @@ function TimingRowInner({
   sessionBestS3Ms,
 }: TimingRowProps) {
   const isPit = lapData.pitStatus > 0;
-  const isRetired = lapData.resultStatus >= 2;
+  const isRetired = lapData.resultStatus >= 4;
 
   const driverStatus = DRIVER_STATUS[lapData.driverStatus] || '';
   const resultStr = RESULT_STATUS[lapData.resultStatus] || '';
@@ -119,7 +121,7 @@ function TimingRowInner({
     .filter(Boolean)
     .join(' ');
 
-  const teamColor = getTeamColor(participant.teamId);
+  const teamColor = driverColor(participant);
 
   const compoundClasses = [
     styles.compound,

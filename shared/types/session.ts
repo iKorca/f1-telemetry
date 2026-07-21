@@ -77,6 +77,10 @@ export interface Participant {
   nationality: number;
   name: string;
   platform: number;
+  /** Livery colours the game reports for this car, as `#rrggbb`. Empty on F1 24 packets. */
+  liveryColours?: string[];
+  /** Primary livery colour, or null when the game didn't send one. */
+  teamColour?: string | null;
 }
 
 export interface ParticipantsData {

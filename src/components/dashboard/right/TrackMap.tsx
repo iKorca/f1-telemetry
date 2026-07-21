@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useSessionInfoStore } from '@/store/sessionInfoStore';
 import { useTelemetryStore } from '@/store/telemetryStore';
 import { useTimingStore } from '@/store/timingStore';
-import { getTeamColor } from '@/lib/colors';
+import { driverColor } from '@/lib/colors';
 import CanvasRenderer from '@/components/common/CanvasRenderer';
 import styles from './TrackMap.module.css';
 
@@ -70,8 +70,7 @@ function TrackMap() {
           ctx.stroke();
           ctx.shadowBlur = 0;
         } else {
-          const teamId = participants[i]?.teamId ?? 255;
-          ctx.fillStyle = getTeamColor(teamId);
+          ctx.fillStyle = driverColor(participants[i]);
           ctx.fill();
         }
       }

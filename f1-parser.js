@@ -22,9 +22,40 @@ const PACKET_IDS = {
   MOTION_EX: 13,
   TIME_TRIAL: 14,
   LAP_POSITIONS: 15,
+  CAR_TELEMETRY2: 16,
 };
 
 const HEADER_SIZE = 29;
+
+// Car-array capacities the game can emit. F1 24/25 size their per-car arrays for
+// 22; the 2026 Season Pack raised cs_maxNumCarsInUDPData to 24.
+const CAR_COUNTS = [22, 24];
+
+/**
+ * Work out how many cars a per-car packet holds and at what stride, using exact
+ * arithmetic against the packet's own length.
+ *
+ * Deliberately strict. The parser used to guess with `Math.round(dataBytes / 22)`
+ * and accept anything in a plausible band, which meant a packet from a layout it
+ * had never seen still "parsed" — into silent nonsense. Requiring
+ * `dataBytes % stride === 0` AND a known car count means an unrecognised layout
+ * returns null, the packet lands in the dropped counter on /api/diag, and the
+ * dashboard shows missing data rather than confident garbage.
+ *
+ * `extraBytes` covers any fixed leading/trailing fields outside the car array.
+ * Returns null when nothing reconciles.
+ */
+function resolveCarLayout(buf, candidateStrides, extraBytes = 0) {
+  const dataBytes = buf.length - HEADER_SIZE - extraBytes;
+  if (dataBytes <= 0) return null;
+
+  for (const stride of candidateStrides) {
+    if (dataBytes % stride !== 0) continue;
+    const cars = dataBytes / stride;
+    if (CAR_COUNTS.includes(cars)) return { stride, cars };
+  }
+  return null;
+}
 const NUM_CARS = 22;
 
 // Visual tyre compound (shown to user)
@@ -73,6 +104,14 @@ const TRACK_IDS = {
 };
 
 const ERS_DEPLOY_MODES = ['None', 'Medium', 'Hotlap', 'Overtake'];
+
+// The 2026 regulations rework energy deployment, so the game may report a mode
+// index beyond the four above. Surface the raw number rather than a flat
+// "Unknown" — an unfamiliar mode is then visible on the dashboard and in
+// /api/diag instead of silently looking like a parser failure.
+function ersDeployModeName(mode) {
+  return ERS_DEPLOY_MODES[mode] ?? `Mode ${mode}`;
+}
 
 const MARSHAL_FLAGS = {
   0: 'NONE', 1: 'GREEN', 2: 'BLUE', 3: 'YELLOW', 4: 'RED',
@@ -215,10 +254,21 @@ function parseHeader(buf) {
 // MotionData = 60 bytes per car
 
 function parseMotion(buf, header) {
-  const SIZE = 60;
+  // 2026 packs this into 54 bytes: the only change is the three g-force fields
+  // going float -> int16 quantised in thousandths of a g, which shifts
+  // yaw/pitch/roll back by 6. Confirmed on live packets — decoded this way the
+  // yaw/pitch/roll stay inside +-pi for all 24 slots, garaged cars read zero
+  // velocity and zero g, and the car on track reports ~3.6 g under braking.
+  const layout = resolveCarLayout(buf, [60, 54]);
+  if (!layout) return null;
+  const SIZE = layout.stride;
+  const quantisedG = SIZE === 54;
+  const shift = quantisedG ? -6 : 0;   // applies from yaw onwards
+  // Thousandths of a g -> g.
+  const gAt = (o) => (quantisedG ? buf.readInt16LE(o) / 1000 : buf.readFloatLE(o));
   const cars = [];
 
-  for (let i = 0; i < NUM_CARS; i++) {
+  for (let i = 0; i < layout.cars; i++) {
     const o = HEADER_SIZE + i * SIZE;
     if (o + SIZE > buf.length) break;
 
@@ -235,12 +285,12 @@ function parseMotion(buf, header) {
       worldRightDirX:    buf.readInt16LE(o + 30),
       worldRightDirY:    buf.readInt16LE(o + 32),
       worldRightDirZ:    buf.readInt16LE(o + 34),
-      gForceLateral:     buf.readFloatLE(o + 36),
-      gForceLongitudinal: buf.readFloatLE(o + 40),
-      gForceVertical:    buf.readFloatLE(o + 44),
-      yaw:               buf.readFloatLE(o + 48),
-      pitch:             buf.readFloatLE(o + 52),
-      roll:              buf.readFloatLE(o + 56),
+      gForceLateral:      gAt(o + 36),
+      gForceLongitudinal: gAt(o + (quantisedG ? 38 : 40)),
+      gForceVertical:     gAt(o + (quantisedG ? 40 : 44)),
+      yaw:               buf.readFloatLE(o + 48 + shift),
+      pitch:             buf.readFloatLE(o + 52 + shift),
+      roll:              buf.readFloatLE(o + 56 + shift),
     });
   }
 
@@ -254,10 +304,23 @@ function parseMotion(buf, header) {
 // CarTelemetryData = 60 bytes per car
 
 function parseCarTelemetry(buf, header) {
-  const SIZE = 60;
+  // Trailing: mfdPanelIndex + mfdPanelIndexSecondaryPlayer + suggestedGear.
+  //
+  // The 2026 format is this struct minus one byte: m_engineTemperature narrowed
+  // from uint16 to uint8, so everything from tyresPressure onwards shifts back
+  // by one. Confirmed against live 2026 packets — with this shift applied the
+  // decoded values are mutually coherent (a car at 168 km/h on full throttle in
+  // 4th at 10728 rpm, garaged cars idling at 3920, tyre pressures ~22 psi);
+  // without it, pressures and surface types decode as nonsense.
+  const layout = resolveCarLayout(buf, [60, 59], 3);
+  if (!layout) return null;
+  const SIZE = layout.stride;
+  // Byte width of m_engineTemperature, and the resulting shift for later fields.
+  const narrowEngineTemp = SIZE === 59;
+  const shift = narrowEngineTemp ? -1 : 0;
   const cars = [];
 
-  for (let i = 0; i < NUM_CARS; i++) {
+  for (let i = 0; i < layout.cars; i++) {
     const o = HEADER_SIZE + i * SIZE;
     if (o + SIZE > buf.length) break;
 
@@ -285,26 +348,28 @@ function parseCarTelemetry(buf, header) {
         buf.readUInt8(o + 34), buf.readUInt8(o + 35),
         buf.readUInt8(o + 36), buf.readUInt8(o + 37),
       ],
-      engineTemperature:        buf.readUInt16LE(o + 38),     // Celsius
+      engineTemperature: narrowEngineTemp
+        ? buf.readUInt8(o + 38)
+        : buf.readUInt16LE(o + 38),                            // Celsius
       tyresPressure: [
-        buf.readFloatLE(o + 40), buf.readFloatLE(o + 44),
-        buf.readFloatLE(o + 48), buf.readFloatLE(o + 52),
+        buf.readFloatLE(o + 40 + shift), buf.readFloatLE(o + 44 + shift),
+        buf.readFloatLE(o + 48 + shift), buf.readFloatLE(o + 52 + shift),
       ],
       surfaceType: [
-        buf.readUInt8(o + 56), buf.readUInt8(o + 57),
-        buf.readUInt8(o + 58), buf.readUInt8(o + 59),
+        buf.readUInt8(o + 56 + shift), buf.readUInt8(o + 57 + shift),
+        buf.readUInt8(o + 58 + shift), buf.readUInt8(o + 59 + shift),
       ],
       surfaceTypeNames: [
-        SURFACE_TYPES[buf.readUInt8(o + 56)] || 'Unknown',
-        SURFACE_TYPES[buf.readUInt8(o + 57)] || 'Unknown',
-        SURFACE_TYPES[buf.readUInt8(o + 58)] || 'Unknown',
-        SURFACE_TYPES[buf.readUInt8(o + 59)] || 'Unknown',
+        SURFACE_TYPES[buf.readUInt8(o + 56 + shift)] || 'Unknown',
+        SURFACE_TYPES[buf.readUInt8(o + 57 + shift)] || 'Unknown',
+        SURFACE_TYPES[buf.readUInt8(o + 58 + shift)] || 'Unknown',
+        SURFACE_TYPES[buf.readUInt8(o + 59 + shift)] || 'Unknown',
       ],
     });
   }
 
   // Trailing fields after all cars
-  const trailO = HEADER_SIZE + NUM_CARS * SIZE;
+  const trailO = HEADER_SIZE + layout.cars * SIZE;
   let suggestedGear = null;
   if (trailO + 3 <= buf.length) {
     suggestedGear = buf.readInt8(trailO + 2);
@@ -322,16 +387,16 @@ function parseCarTelemetry(buf, header) {
 // We try 57 first then fallback to 55 (F1 24 size)
 
 function parseLapData(buf, header) {
-  // Detect struct size from packet length
-  const dataBytes = buf.length - HEADER_SIZE - 1; // -1 for trailing byte
-  const size57 = 57 * NUM_CARS;
-  const size55 = 55 * NUM_CARS;
-  let SIZE = 57;
-  if (Math.abs(dataBytes - size55) < Math.abs(dataBytes - size57)) SIZE = 55;
+  // Trailing: timeTrialPBCarIdx + timeTrialRivalCarIdx. LapData kept its 57-byte
+  // stride in the 2026 format, so this resolves to 24 cars there with no other
+  // change; 55 is the older F1 24 layout.
+  const layout = resolveCarLayout(buf, [57, 55], 2);
+  if (!layout) return null;
+  const SIZE = layout.stride;
 
   const cars = [];
 
-  for (let i = 0; i < NUM_CARS; i++) {
+  for (let i = 0; i < layout.cars; i++) {
     const o = HEADER_SIZE + i * SIZE;
     if (o + SIZE > buf.length) break;
 
@@ -393,10 +458,21 @@ function parseLapData(buf, header) {
 // CarStatusData = 55 bytes per car
 
 function parseCarStatus(buf, header) {
-  const SIZE = 55;
+  // 2026 inserts one float, m_ersHarvestLimitPerLap, between the MGU-H harvest
+  // figure and m_ersDeployedThisLap — pushing deployed 50 -> 54 and networkPaused
+  // 54 -> 58, for a 59-byte struct. Everything before offset 50 is untouched.
+  //
+  // Confirmed on live 2026 packets: read this way, every garaged car reports
+  // deployedThisLap = 0 (it would read 8.5 MJ under the old offsets) and the new
+  // field holds 8,500,000 J — the 2026 regulations' per-lap MGU-K harvest limit.
+  const layout = resolveCarLayout(buf, [55, 59]);
+  if (!layout) return null;
+  const SIZE = layout.stride;
+  const has2026Ers = SIZE === 59;
+  const tail = has2026Ers ? 4 : 0;   // shift applied from ersDeployedThisLap on
   const cars = [];
 
-  for (let i = 0; i < NUM_CARS; i++) {
+  for (let i = 0; i < layout.cars; i++) {
     const o = HEADER_SIZE + i * SIZE;
     if (o + SIZE > buf.length) break;
 
@@ -427,11 +503,14 @@ function parseCarStatus(buf, header) {
       ersDeployMode:            buf.readUInt8(o + 41),
       ersHarvestedThisLapMGUK:  buf.readFloatLE(o + 42),
       ersHarvestedThisLapMGUH:  buf.readFloatLE(o + 46),
-      ersDeployedThisLap:       buf.readFloatLE(o + 50),
-      networkPaused:            buf.readUInt8(o + 54),
+      // Joules of MGU-K harvesting allowed this lap. 2026 format only; null on
+      // older packets so callers can tell "not sent" from "zero".
+      ersHarvestLimitPerLap:    has2026Ers ? buf.readFloatLE(o + 50) : null,
+      ersDeployedThisLap:       buf.readFloatLE(o + 50 + tail),
+      networkPaused:            buf.readUInt8(o + 54 + tail),
       // Derived
       tyreCompoundName:   VISUAL_TYRE[visualCompound] || ACTUAL_TYRE[actualCompound] || 'UNKNOWN',
-      ersDeployModeName:  ERS_DEPLOY_MODES[buf.readUInt8(o + 41)] || 'Unknown',
+      ersDeployModeName:  ersDeployModeName(buf.readUInt8(o + 41)),
     });
   }
 
@@ -612,14 +691,15 @@ function parseSession(buf) {
 // CarSetupData = 49 bytes per car (F1 25)
 
 function parseCarSetups(buf, header) {
-  // Auto-detect struct size from packet
-  const dataBytes = buf.length - HEADER_SIZE;
-  const guessedSize = Math.round(dataBytes / NUM_CARS);
-  const SIZE = (guessedSize >= 45 && guessedSize <= 55) ? guessedSize : 49;
+  // Trailing: nextFrontWingValue (float). The 50-byte stride is unchanged in
+  // 2026, so this resolves straight to 24 cars.
+  const layout = resolveCarLayout(buf, [50, 49], 4);
+  if (!layout) return null;
+  const SIZE = layout.stride;
 
   const cars = [];
 
-  for (let i = 0; i < NUM_CARS; i++) {
+  for (let i = 0; i < layout.cars; i++) {
     const o = HEADER_SIZE + i * SIZE;
     if (o + 30 > buf.length) break;
 
@@ -657,70 +737,116 @@ function parseCarSetups(buf, header) {
 
 // ─── Packet 4: Participants ───────────────────────────────────────────────────
 
+// Every ParticipantData layout we know how to decode. The packet is
+// numActiveCars(1) + cars × stride, so each layout implies exactly one total
+// packet length — which lets us pick by exact arithmetic instead of guessing.
+//
+// `wideIds` marks the 2026 format, where m_driverId / m_networkId / m_teamId
+// were each promoted uint8 → uint16. That adds 3 bytes and shifts every field
+// after them, which is why a near-miss guess corrupts the whole struct.
+const PARTICIPANT_LAYOUTS = [
+  { format: 2026, cars: 24, stride: 60, nameLen: 32, wideIds: true,  hasLivery: true  },
+  { format: 2025, cars: 22, stride: 57, nameLen: 32, wideIds: false, hasLivery: true  },
+  { format: 2024, cars: 22, stride: 58, nameLen: 48, wideIds: false, hasLivery: false },
+];
+
+for (const l of PARTICIPANT_LAYOUTS) {
+  l.packetSize = HEADER_SIZE + 1 + l.cars * l.stride;
+  // Field offsets within one ParticipantData, derived from the id width.
+  const idBytes = l.wideIds ? 2 : 1;
+  l.offDriverId   = 1;
+  l.offNetworkId  = l.offDriverId + idBytes;
+  l.offTeamId     = l.offNetworkId + idBytes;
+  l.offMyTeam     = l.offTeamId + idBytes;
+  l.offRaceNumber = l.offMyTeam + 1;
+  l.offNationality = l.offRaceNumber + 1;
+  l.offName       = l.offNationality + 1;
+}
+
+/**
+ * Pick the layout that reconciles EXACTLY with this packet's length.
+ *
+ * The previous implementation rounded `dataBytes / 22` and accepted anything in
+ * a 50-70 band, which silently mis-decoded the 2026 packet: 1440/22 = 65.45
+ * rounds to 65, lands inside the band, and also flips the name length to 48 —
+ * so every name, platform byte and livery colour was read from the wrong offset
+ * while the function still reported success. Requiring an exact match means an
+ * unrecognised layout returns null and shows up in the dropped-packet counter
+ * instead of as plausible-looking garbage.
+ */
+function resolveParticipantLayout(buf, header) {
+  const byFormat = PARTICIPANT_LAYOUTS.find((l) => l.format === header.packetFormat);
+  if (byFormat && buf.length === byFormat.packetSize) return byFormat;
+  // Format didn't match (or the header lied) — fall back to an exact size match.
+  return PARTICIPANT_LAYOUTS.find((l) => buf.length === l.packetSize) || null;
+}
+
 function parseParticipants(buf, header) {
   const o = HEADER_SIZE;
   if (buf.length < o + 1) return null;
 
+  const layout = resolveParticipantLayout(buf, header);
+  if (!layout) return null;   // unknown layout — better to drop than to invent
+
   const numActiveCars = buf.readUInt8(o);
-
-  // Determine struct size from packet format version (reliable) with packet-size fallback
-  // F1 25 (2025): ParticipantData = 57 bytes, m_name = char[32]
-  // F1 24 (2024): ParticipantData = 58 bytes, m_name = char[48]
-  // Packet ALWAYS contains 22 participant entries
-  let participantSize, nameLen;
-
-  if (header.packetFormat >= 2025) {
-    participantSize = 57;
-    nameLen = 32;
-  } else {
-    participantSize = 58;
-    nameLen = 48;
-  }
-
-  // Cross-check with actual packet size; override if mismatch
-  const dataBytes = buf.length - o - 1;
-  const expectedBytes = NUM_CARS * participantSize;
-  if (Math.abs(dataBytes - expectedBytes) > NUM_CARS) {
-    // Packet size doesn't match expected — auto-detect
-    const detected = Math.round(dataBytes / NUM_CARS);
-    if (detected >= 50 && detected <= 70) {
-      participantSize = detected;
-      nameLen = detected <= 57 ? 32 : 48;
-    }
-  }
+  const { stride, nameLen } = layout;
+  const readId = layout.wideIds
+    ? (b, at) => b.readUInt16LE(at)
+    : (b, at) => b.readUInt8(at);
 
   const participants = [];
-  for (let i = 0; i < NUM_CARS; i++) {
-    const pO = o + 1 + i * participantSize;
-    if (pO + 7 + nameLen > buf.length) break;
+  for (let i = 0; i < layout.cars; i++) {
+    const pO = o + 1 + i * stride;
+    if (pO + stride > buf.length) break;
 
     // Read name: truncate at FIRST null byte (bytes after null are uninitialized garbage)
     // This is the critical fix — .replace(/\0/g, '') would concatenate garbage with the name
-    const nameStart = pO + 7;
+    const nameStart = pO + layout.offName;
     const nameBytes = buf.subarray(nameStart, nameStart + nameLen);
     const nullIdx = nameBytes.indexOf(0);
     let name = (nullIdx >= 0 ? nameBytes.subarray(0, nullIdx) : nameBytes)
       .toString('utf8')
       .trim();
 
-    // Parse trailing fields after name
+    // Parse trailing fields after name:
+    //   yourTelemetry(1) + showOnlineNames(1) + techLevel(2) + platform(1) + numColours(1)
     const afterName = nameStart + nameLen;
     let platform = 0;
-    if (nameLen === 32 && afterName + 6 <= buf.length) {
-      // F1 25 layout after name: yourTelemetry(1) + showOnlineNames(1) + techLevel(2) + platform(1) + numColours(1)
+    let liveryColours = [];
+    if (layout.hasLivery && afterName + 6 <= buf.length) {
       platform = buf.readUInt8(afterName + 4); // 1=Steam, 3=PS, 4=Xbox, 6=Origin
+
+      // ...then LiveryColour[4], each an RGB byte triplet, filling out the
+      // struct. These are the car's ACTUAL colours as the game renders them,
+      // which is why we prefer them over any hardcoded team palette: they stay
+      // correct for the 2026 grid, MyTeam and custom liveries with no table to
+      // maintain. numColours says how many of the four slots are populated.
+      const numColours = Math.min(buf.readUInt8(afterName + 5), 4);
+      for (let c = 0; c < numColours; c++) {
+        const co = afterName + 6 + c * 3;
+        if (co + 3 > buf.length) break;
+        liveryColours.push(
+          '#' + [buf.readUInt8(co), buf.readUInt8(co + 1), buf.readUInt8(co + 2)]
+            .map((v) => v.toString(16).padStart(2, '0'))
+            .join(''),
+        );
+      }
     }
 
     participants.push({
       aiControlled: buf.readUInt8(pO),
-      driverId:     buf.readUInt8(pO + 1),
-      networkId:    buf.readUInt8(pO + 2),
-      teamId:       buf.readUInt8(pO + 3),
-      myTeam:       buf.readUInt8(pO + 4),
-      raceNumber:   buf.readUInt8(pO + 5),
-      nationality:  buf.readUInt8(pO + 6),
+      driverId:     readId(buf, pO + layout.offDriverId),
+      networkId:    readId(buf, pO + layout.offNetworkId),
+      teamId:       readId(buf, pO + layout.offTeamId),
+      myTeam:       buf.readUInt8(pO + layout.offMyTeam),
+      raceNumber:   buf.readUInt8(pO + layout.offRaceNumber),
+      nationality:  buf.readUInt8(pO + layout.offNationality),
       name,
       platform,
+      liveryColours,
+      // Primary livery colour, ready to use as a CSS colour. Null when the game
+      // didn't send one, so callers can fall back to the static team palette.
+      teamColour: liveryColours[0] || null,
     });
   }
 
@@ -767,16 +893,17 @@ function parseParticipants(buf, header) {
 // F1 24 keeps the pre-blisters layout (no `tyreBlisters`, wings start at 24).
 
 function parseCarDamage(buf, header) {
-  const dataBytes = buf.length - HEADER_SIZE;
-  const perCar = Math.round(dataBytes / NUM_CARS);
-  // Prefer the probed per-car size; clamp to known layouts.
-  const SIZE = perCar >= 44 ? 46 : 42;
+  // 46 bytes/car in F1 25 and unchanged in 2026 (so 24 cars resolve cleanly);
+  // 42 is the pre-blisters F1 24 layout.
+  const layout = resolveCarLayout(buf, [46, 42]);
+  if (!layout) return null;
+  const SIZE = layout.stride;
   const isF125 = SIZE === 46;
   // All post-blisters fields shift by +4 in F1 25.
   const off = (base) => base + (isF125 ? 4 : 0);
 
   const cars = [];
-  for (let i = 0; i < NUM_CARS; i++) {
+  for (let i = 0; i < layout.cars; i++) {
     const o = HEADER_SIZE + i * SIZE;
     if (o + SIZE > buf.length) break;
 
@@ -1238,10 +1365,17 @@ function parseLapPositions(buf) {
   const matrix = []; // matrix[lapIdx][carIdx]
   const base = o + 2;
 
+  // Row stride is the car-array width, which the 2026 format widened to 24.
+  // It has to come from the packet: hardcoding 22 would shift every row after
+  // the first by two cars, quietly scrambling the whole position history.
+  const layout = resolveCarLayout(buf, [MAX_LAPS], 2);
+  if (!layout) return null;
+  const carsPerLap = layout.cars;
+
   for (let l = 0; l < MAX_LAPS; l++) {
-    const row = new Array(NUM_CARS).fill(0);
-    for (let c = 0; c < NUM_CARS; c++) {
-      const off = base + l * NUM_CARS + c;
+    const row = new Array(carsPerLap).fill(0);
+    for (let c = 0; c < carsPerLap; c++) {
+      const off = base + l * carsPerLap + c;
       if (off >= buf.length) break;
       row[c] = buf.readUInt8(off);
     }
@@ -1283,6 +1417,7 @@ function parsePacket(buffer) {
       case PACKET_IDS.MOTION_EX:            data = parseMotionEx(buf);                    break;
       case PACKET_IDS.TIME_TRIAL:           data = parseTimeTrial(buf);                   break;
       case PACKET_IDS.LAP_POSITIONS:        data = parseLapPositions(buf);                break;
+      case PACKET_IDS.CAR_TELEMETRY2:       data = parseCarTelemetry2(buf, header);       break;
       default: return null;
     }
   } catch {
@@ -1292,6 +1427,50 @@ function parsePacket(buffer) {
   if (!data) return null;
 
   return { type: header.packetId, header, data };
+}
+
+// ─── Packet 16: Car Telemetry 2 ───────────────────────────────────────────────
+// New in the 2026 format. 10 bytes per car, carrying the two mechanics the 2026
+// regulations introduced: Active Aero (the X-mode / Z-mode wing) and the
+// Overtake boost that replaces DRS.
+//
+// Layout confirmed against live packets — every boolean field reads strictly 0/1
+// across all 24 slots, and the car actually on track is the only one reporting
+// an activation distance.
+
+const ACTIVE_AERO_MODES = ['Off', 'On', 'Auto'];
+
+function parseCarTelemetry2(buf, header) {
+  const layout = resolveCarLayout(buf, [10]);
+  if (!layout) return null;
+
+  const SIZE = layout.stride;
+  const cars = [];
+
+  for (let i = 0; i < layout.cars; i++) {
+    const o = HEADER_SIZE + i * SIZE;
+    if (o + SIZE > buf.length) break;
+
+    const aeroMode = buf.readUInt8(o);
+    cars.push({
+      activeAeroMode:               aeroMode,
+      activeAeroModeName:           ACTIVE_AERO_MODES[aeroMode] ?? `Mode ${aeroMode}`,
+      activeAeroAvailable:          buf.readUInt8(o + 1),
+      activeAeroActivationDistance: buf.readUInt16LE(o + 2),
+      overtakeAvailable:            buf.readUInt8(o + 4),
+      overtakeActive:               buf.readUInt8(o + 5),
+      overtakeActivationDistance:   buf.readUInt16LE(o + 6),
+      // 1 once the 2026 technical regulations are in force for this session —
+      // handy for telling a 2026-content session apart from a legacy one.
+      regulations2026Applicable:    buf.readUInt8(o + 8),
+      isDrivingWrongWay:            buf.readUInt8(o + 9),
+    });
+  }
+
+  return {
+    playerData: cars[header.playerCarIndex] || null,
+    allCars: cars,
+  };
 }
 
 module.exports = { parsePacket, PACKET_IDS };

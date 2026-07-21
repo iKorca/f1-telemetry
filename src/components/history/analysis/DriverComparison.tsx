@@ -22,7 +22,7 @@ function DriverComparison({ session }: DriverComparisonProps) {
       return {
         idx: n,
         name: p.name || `Car ${n}`,
-        teamId: p.teamId ?? 0,
+        teamId: p.teamId ?? 255,
       };
     });
   }, [rd]);

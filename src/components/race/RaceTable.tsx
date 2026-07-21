@@ -4,7 +4,7 @@ import { useTimingStore } from '@/store/timingStore';
 import { useRaceStore } from '@/store/raceStore';
 import DataTable, { type DataColumn } from '@/components/common/DataTable';
 import { fmtTime, fmtGap } from '@/lib/formatters';
-import { getTeamColor, getCompoundColor, wearColor } from '@/lib/colors';
+import { driverColor, getCompoundColor, wearColor } from '@/lib/colors';
 import { DRIVER_STATUS, RESULT_STATUS, ERS_FULL_ENERGY } from '@/lib/constants';
 import StintBadge from './StintBadge';
 import styles from './RaceTable.module.css';
@@ -132,7 +132,7 @@ export default function RaceTable() {
       accessor: (r) => r.name,
       width: '140px',
       render: (r) => (
-        <span style={{ borderLeft: `3px solid ${getTeamColor(r.teamId)}`, paddingLeft: '0.5rem', fontWeight: 700 }}>
+        <span style={{ borderLeft: `3px solid ${driverColor(r)}`, paddingLeft: '0.5rem', fontWeight: 700 }}>
           {r.name}
         </span>
       ),
@@ -657,7 +657,7 @@ function ComparisonPanel({ rows, onClear, onRemove }: ComparisonPanelProps) {
           <div key={r.idx} className={`${styles.compareCell} ${styles.compareDriverHead}`}>
             <span
               className={styles.compareDriverName}
-              style={{ borderLeft: `3px solid ${getTeamColor(r.teamId)}` }}
+              style={{ borderLeft: `3px solid ${driverColor(r)}` }}
             >
               <span className={styles.compareDriverPos}>P{r.position || '—'}</span>
               {r.name}

@@ -83,10 +83,17 @@ In the game: **Settings → Telemetry Settings**
 | UDP IP Address    | `127.0.0.1`    |
 | UDP Port          | `20777`        |
 | UDP Send Rate     | `60Hz`         |
-| UDP Format        | `2025`         |
+| UDP Format        | `2025` or `2026` |
 | Show Player       | On             |
 
 ### 2. Install + run
+
+On a Mac, double-click **`start-telemetry.command`** in Finder. It installs
+dependencies on first run, rebuilds the UI only when sources changed, prints the
+local and LAN URLs (the LAN one is what you want for viewing on a phone) and
+opens a browser. Ctrl-C stops it.
+
+From a terminal:
 
 ```bash
 npm install
@@ -144,7 +151,7 @@ f1-telemetry/
 ## Tests
 
 ```bash
-npm test                 # vitest run — 99 cases across:
+npm test                 # vitest run — 123 cases across:
                          # • lapUtils.deltaMsAtDistance
                          # • strategy.recommend / family / recColor / recIcon
                          # • timingStore.handleLapData (atomic PB,

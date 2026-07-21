@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useTimingStore } from '@/store/timingStore';
-import { getTeamColor } from '@/lib/colors';
+import { driverColor } from '@/lib/colors';
 import { COMPOUND_COLORS } from '@shared/types';
 import styles from './RelativeBar.module.css';
 
@@ -25,6 +25,7 @@ interface RelCar {
   idx: number;
   name: string;
   teamId: number;
+  teamColour: string | null;
   pos: number;
   gap: number;
   isPlayer: boolean;
@@ -51,7 +52,8 @@ function RelativeBar() {
       if (!lap || !lap.carPosition || lap.carPosition === 0) continue;
       const name = parts[i]?.name || '';
       if (!name) continue;
-      const teamId = parts[i]?.teamId ?? 0;
+      const teamId = parts[i]?.teamId ?? 255;
+      const teamColour = parts[i]?.teamColour ?? null;
 
       let gap = 0;
       if (i === pi) {
@@ -61,7 +63,7 @@ function RelativeBar() {
       } else {
         gap = lap.deltaToCarInFrontInMS || 0;
       }
-      cars.push({ idx: i, name, teamId, pos: lap.carPosition, gap, isPlayer: i === pi });
+      cars.push({ idx: i, name, teamId, teamColour, pos: lap.carPosition, gap, isPlayer: i === pi });
     }
 
     cars.sort((a, b) => a.pos - b.pos);
@@ -79,7 +81,7 @@ function RelativeBar() {
     <div className={styles.bar}>
       <div className={styles.content}>
         {visibleCars.map((c) => {
-          const teamColor = getTeamColor(c.teamId);
+          const teamColor = driverColor(c);
           const gapStr = c.isPlayer
             ? ''
             : c.pos < playerPos

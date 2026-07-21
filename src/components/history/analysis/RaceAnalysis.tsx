@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import type { SessionDetail } from '@shared/types';
-import { getTeamColor } from '@/lib/colors';
+import { driverColor } from '@/lib/colors';
 import { fmtLapTimeTick, valLapTime, valDeltaSec } from '@/lib/formatters';
 import UPlotChart from '@/components/common/UPlotChart';
 import type uPlot from 'uplot';
@@ -126,7 +126,7 @@ function RaceAnalysis({ session }: RaceAnalysisProps) {
     for (const idx of selected) {
       const laps = rd.carLaps[idx] || [];
       const p = participants[idx] || {};
-      const color = getTeamColor(p.teamId ?? 0);
+      const color = driverColor({ teamId: p.teamId ?? 255, teamColour: p.teamColour });
       const name = p.name || `Car ${idx}`;
 
       // Per-series value formatter matches the axis — lap time and gap show
@@ -250,7 +250,7 @@ function RaceAnalysis({ session }: RaceAnalysisProps) {
         {driverIndices.map((idx) => {
           const p = (rd.participants || [])[idx] || {};
           const name = p.name || `Car ${idx}`;
-          const color = getTeamColor(p.teamId ?? 0);
+          const color = driverColor({ teamId: p.teamId ?? 255, teamColour: p.teamColour });
           return (
             <label
               key={idx}

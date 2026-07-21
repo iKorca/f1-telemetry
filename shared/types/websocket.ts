@@ -11,6 +11,8 @@ import type { PracticeWorkbook } from './practice';
 export interface RaceEngineerCar {
   name: string;
   teamId: number;
+  /** Livery colour from the game, when it sent one. Preferred over the static palette. */
+  teamColour?: string | null;
   raceNumber: number;
   position: number;
   currentLap: number;

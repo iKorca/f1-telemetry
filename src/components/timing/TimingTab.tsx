@@ -3,7 +3,7 @@ import { useTimingStore } from '../../store/timingStore';
 import { useSessionInfoStore } from '../../store/sessionInfoStore';
 import DataTable, { type DataColumn } from '@/components/common/DataTable';
 import { fmtTime, fmtSector, fmtDelta } from '@/lib/formatters';
-import { getTeamColor, getCompoundColor } from '@/lib/colors';
+import { driverColor, getCompoundColor } from '@/lib/colors';
 import { DRIVER_STATUS } from '@/lib/constants';
 import EmptyState from '@/components/common/EmptyState';
 import type { LapData, CarStatus, Participant, SessionHistoryData } from '@shared/types';
@@ -11,8 +11,11 @@ import styles from './TimingTab.module.css';
 
 const LAPTIME_SESSION_RE = /^P\d|^Short P|^Q|^Short Q|^OSQ|Sprint SO|Time Trial/i;
 
+// m_resultStatus per the F1 UDP spec: 0 invalid, 1 inactive, 2 active,
+// 3 finished, 4 DNF, 5 DSQ, 6 not classified, 7 retired. States 0-3 mean the car
+// is still running, so they render blank and the driver status is shown instead.
 const RESULT_STATUS: Record<number, string> = {
-  0: '', 1: '', 2: 'DNF', 3: 'DSQ', 4: 'NC', 5: 'RET',
+  4: 'DNF', 5: 'DSQ', 6: 'NC', 7: 'RET',
 };
 
 function bestSectorsFor(history: SessionHistoryData | undefined) {
@@ -73,7 +76,7 @@ function useTimingColumns(isLaptimeSession: boolean): DataColumn<TimingRow>[] {
         accessor: (r) => r.participant.name,
         width: '120px',
         render: (r) => (
-          <span style={{ borderLeft: `3px solid ${getTeamColor(r.participant.teamId)}`, paddingLeft: '0.5rem', fontWeight: 700 }}>
+          <span style={{ borderLeft: `3px solid ${driverColor(r.participant)}`, paddingLeft: '0.5rem', fontWeight: 700 }}>
             {r.participant.name}
           </span>
         ),
@@ -323,7 +326,7 @@ export default function TimingTab() {
     if (r.isPlayer) parts.push(styles.player);
     if (r.isFastest && r.lapData.lastLapTimeInMS > 0) parts.push(styles.fastest);
     if (r.lapData.pitStatus > 0) parts.push(styles.pit);
-    if (r.lapData.resultStatus >= 2) parts.push(styles.retired);
+    if (r.lapData.resultStatus >= 4) parts.push(styles.retired);
     return parts.join(' ');
   };
 

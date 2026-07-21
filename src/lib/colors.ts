@@ -52,9 +52,25 @@ export function wearColor(pct: number): string {
 
 /**
  * Look up team color by teamId. Falls back to grey.
+ *
+ * `liveryColour` is the colour the game reported for that specific car; when
+ * present it wins, because it stays correct for grids the static palette has
+ * never heard of (the 2026 teams, MyTeam, custom online liveries).
  */
-export function getTeamColor(teamId: number): string {
+export function getTeamColor(teamId: number, liveryColour?: string | null): string {
+  if (liveryColour) return liveryColour;
   return TEAM_COLORS[teamId] ?? TEAM_COLORS[255] ?? '#888888';
+}
+
+/**
+ * Colour for a car, preferring the livery the game sent over the static palette.
+ * Use this anywhere a participant (or any object carrying `teamColour`) is in hand.
+ */
+export function driverColor(
+  car: { teamId: number; teamColour?: string | null } | null | undefined,
+): string {
+  if (!car) return TEAM_COLORS[255] ?? '#888888';
+  return getTeamColor(car.teamId, car.teamColour);
 }
 
 /**

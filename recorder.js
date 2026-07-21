@@ -182,7 +182,7 @@ class Recorder {
     // Always update — participants may arrive after initial recording start
     this._session.raceData.participants = all.map(d => ({
       name:       d.name || '',
-      teamId:     d.teamId ?? 0,
+      teamId:     d.teamId ?? 255,
       raceNumber: d.raceNumber ?? 0,
     }));
 

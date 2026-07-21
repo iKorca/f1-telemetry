@@ -51,9 +51,139 @@ const state = {
   lobbyInfo:           null,
   timeTrial:           null,
   lapPositions:        null,
+  carTelemetry2:       null,   // 2026: active aero + overtake boost
   finalClassification: null,
   tyreSets:            {}, // keyed by carIdx (one packet per car)
 };
+
+// ─── Wire diagnostics ─────────────────────────────────────────────────────────
+//
+// Records what the game ACTUALLY puts on the wire, sampled before the parser
+// runs. This matters because parsePacket() returns null on anything it can't
+// decode, so a struct-size change in a game update shows up as packets silently
+// vanishing rather than as an error. Here we see the raw byte length per packet
+// id and the header's own packetFormat/gameYear, which is enough to tell a
+// layout change apart from "the game just isn't sending".
+//
+// Exposed at GET /api/diag. Cheap: a few integers per packet id, no history.
+const PACKET_NAMES = Object.fromEntries(
+  Object.entries(PACKET_IDS).map(([name, id]) => [id, name]),
+);
+
+// Team ids the frontend palette covers. Read out of the TS source rather than
+// duplicated here so the diagnostic can't drift as the palette grows; this is
+// advisory only, so an unreadable file just means we skip the "mapped" flag.
+const MAPPED_TEAM_IDS = (() => {
+  try {
+    const src = require('fs').readFileSync(
+      path.join(__dirname, 'shared/types/enums.ts'), 'utf8',
+    );
+    const block = src.match(/TEAM_COLORS[^{]*\{([\s\S]*?)\}/);
+    if (!block) return null;
+    // Entries can share a line (`220: '#fff', 476: '#fff',`), so match every
+    // `<id>:` key rather than only the one at the start of each line.
+    return new Set([...block[1].matchAll(/(?:^|[\s,{])(\d+)\s*:/gm)].map(m => Number(m[1])));
+  } catch {
+    return null;
+  }
+})();
+
+// Highest F1 UDP output format f1-parser.js implements. Both the F1 25 layout
+// and the 2026 Season Pack layout (24-car arrays, uint16 team ids, quantised
+// g-forces, the extra ERS harvest-limit field and packet 16) are decoded.
+const MAX_SUPPORTED_PACKET_FORMAT = 2026;
+
+const diag = {
+  startedAt: Date.now(),
+  formatWarned: false,
+  header: null,       // last seen packetFormat / gameYear / version
+  total: 0,
+  unparsed: 0,        // header looked sane but parsePacket() gave up
+  byPacketId: {},     // id -> { count, parsed, sizes: {size: count} }
+
+  // Semantic accumulators. These persist across sessions on purpose: the 2026
+  // content update sits alongside the stock F1 25 cars, so the only way to tell
+  // whether the two grids share a team-id range or occupy separate ones is to
+  // watch ids pile up over several sessions and compare.
+  teamsSeen:  {},     // teamId -> { count, names: [] }
+  ersModes:   {},     // raw m_ersDeployMode value -> count  (>3 means the enum grew)
+  ersStoreMax: 0,     // highest m_ersStoreEnergy seen; 2026 regs may lift the 4 MJ cap
+  tracksSeen: {},     // trackId -> count
+
+  // Last raw packet per id, kept so a struct whose layout we don't decode yet
+  // can still be examined byte by byte via /api/diag/sample/:packetId. One
+  // buffer per id (~1.4 KB each, 17 ids) — bounded and cheap.
+  samples: {},
+};
+
+function recordPacket(buf) {
+  diag.total++;
+  if (buf.length < 29) return null;       // shorter than the F1 25 header
+
+  const packetId = buf.readUInt8(6);
+  const entry = diag.byPacketId[packetId] ||
+    (diag.byPacketId[packetId] = { count: 0, parsed: 0, sizes: {} });
+  entry.count++;
+  entry.sizes[buf.length] = (entry.sizes[buf.length] || 0) + 1;
+  diag.samples[packetId] = buf;
+
+  const packetFormat = buf.readUInt16LE(0);
+  diag.header = {
+    packetFormat,
+    gameYear:         buf.readUInt8(2),
+    gameMajorVersion: buf.readUInt8(3),
+    gameMinorVersion: buf.readUInt8(4),
+    packetVersion:    buf.readUInt8(5),
+  };
+
+  // The 2026 Season Pack adds a SECOND, opt-in UDP output format. Selecting it
+  // in-game widens the per-car arrays (22 -> 24 cars) and promotes
+  // m_driverId/m_networkId/m_teamId from uint8 to uint16, which shifts every
+  // field after them. This parser only implements the F1 25 (2025) layout, so on
+  // format 2026 it would decode confidently and be wrong — mangled names,
+  // team ids read as the low byte of a uint16. Say so loudly instead.
+  if (packetFormat > MAX_SUPPORTED_PACKET_FORMAT && !diag.formatWarned) {
+    diag.formatWarned = true;
+    console.warn(
+      `\n[UDP] ⚠  Game is sending packetFormat ${packetFormat}; this parser implements ` +
+      `up to ${MAX_SUPPORTED_PACKET_FORMAT}.\n` +
+      `      Unrecognised per-car layouts are dropped rather than mis-read, so check\n` +
+      `      GET /api/diag — a packet with received > parsed is one we can't decode yet.\n`,
+    );
+  }
+
+  return entry;
+}
+
+// Pull the few values that actually distinguish a 2026 grid from a 2025 one.
+// Called only after a successful parse, so everything here is already decoded.
+function recordSemantics(packet) {
+  const { type, data } = packet;
+
+  if (type === PACKET_IDS.PARTICIPANTS) {
+    for (const p of data.participants || []) {
+      const t = diag.teamsSeen[p.teamId] ||
+        (diag.teamsSeen[p.teamId] = { count: 0, names: [], colours: [] });
+      t.count++;
+      // Keep a handful of names per id — enough to recognise the team by driver.
+      if (p.name && !t.names.includes(p.name) && t.names.length < 6) t.names.push(p.name);
+      for (const c of p.liveryColours || []) {
+        if (!t.colours.includes(c)) t.colours.push(c);
+      }
+    }
+  }
+
+  if (type === PACKET_IDS.CAR_STATUS) {
+    for (const c of data.allCars || []) {
+      diag.ersModes[c.ersDeployMode] = (diag.ersModes[c.ersDeployMode] || 0) + 1;
+      if (c.ersStoreEnergy > diag.ersStoreMax) diag.ersStoreMax = c.ersStoreEnergy;
+    }
+  }
+
+  if (type === PACKET_IDS.SESSION && data.trackId !== undefined) {
+    diag.tracksSeen[data.trackId] = (diag.tracksSeen[data.trackId] || 0) + 1;
+  }
+}
 
 let lastSessionUID = null;
 
@@ -72,7 +202,7 @@ function makeRaceState() {
   return {
     active: false,
     cars: Array.from({ length: NUM_CARS }, () => ({
-      name: '', teamId: 0, raceNumber: 0,
+      name: '', teamId: 0, teamColour: null, raceNumber: 0,
       position: 0, currentLap: 0,
       lastLapMs: 0, bestLapMs: 0,
       currentCompound: '', tyreAge: 0,
@@ -114,7 +244,8 @@ function updateRaceState() {
     // Participant info
     if (allParts[i]) {
       car.name       = allParts[i].name || '';
-      car.teamId     = allParts[i].teamId ?? 0;
+      car.teamId     = allParts[i].teamId ?? 255;
+      car.teamColour = allParts[i].teamColour ?? null;
       car.raceNumber = allParts[i].raceNumber ?? 0;
     }
 
@@ -346,6 +477,86 @@ app.get('/api/network', (req, res) => {
     httpPort: cfg.httpPort || 3000,
     tunnelUrl: tunnelUrl || null,
     tunnelActive: !!tunnelUrl,
+  });
+});
+
+// Wire diagnostics — what the game is actually sending, and what we can decode.
+// Use this to spot a packet-layout change after a game update: a packet id whose
+// `parsed` count lags its `count`, or an unfamiliar size in `sizes`, is the tell.
+app.get('/api/diag', (req, res) => {
+  const packets = Object.entries(diag.byPacketId)
+    .map(([id, e]) => ({
+      packetId: Number(id),
+      name: PACKET_NAMES[id] || `id ${id}`,
+      received: e.count,
+      parsed: e.parsed,
+      dropped: e.count - e.parsed,
+      sizes: Object.keys(e.sizes).map(Number).sort((a, b) => a - b),
+    }))
+    .sort((a, b) => a.packetId - b.packetId);
+
+  // Every team id seen since the server started, flagged against the palette the
+  // dashboard actually ships. Anything `mapped: false` renders as fallback grey.
+  const teams = Object.entries(diag.teamsSeen)
+    .map(([id, t]) => ({
+      teamId: Number(id),
+      mapped: MAPPED_TEAM_IDS ? MAPPED_TEAM_IDS.has(Number(id)) : null,
+      seen: t.count,
+      drivers: t.names,
+      liveryColours: t.colours,
+    }))
+    .sort((a, b) => a.teamId - b.teamId);
+
+  res.json({
+    uptimeSec: Math.round((Date.now() - diag.startedAt) / 1000),
+    header: diag.header,
+    // false means the game is on the 2026 UDP format, which this parser does not
+    // decode — treat every other field below as unreliable until it's switched back.
+    formatSupported: diag.header
+      ? diag.header.packetFormat <= MAX_SUPPORTED_PACKET_FORMAT
+      : null,
+    maxSupportedPacketFormat: MAX_SUPPORTED_PACKET_FORMAT,
+    totalPackets: diag.total,
+    unparsed: diag.unparsed,
+    packets,
+    teams,
+    unmappedTeamIds: teams.filter(t => t.mapped === false).map(t => t.teamId),
+    ers: {
+      // Raw m_ersDeployMode values observed. The parser names indices 0..3
+      // (None/Medium/Hotlap/Overtake) — any value beyond that means the 2026
+      // regs added a mode and the name table needs extending.
+      modesSeen: Object.keys(diag.ersModes).map(Number).sort((a, b) => a - b),
+      modeCounts: diag.ersModes,
+      maxKnownIndex: 3,
+      storeEnergyMaxSeen: Math.round(diag.ersStoreMax),
+      storeEnergyAssumedFull: 4_000_000,
+    },
+    tracksSeen: Object.keys(diag.tracksSeen).map(Number).sort((a, b) => a - b),
+    grid: state.participants
+      ? {
+          numActiveCars: state.participants.numActiveCars,
+          teamIds: [...new Set((state.participants.participants || []).map(p => p.teamId))]
+            .sort((a, b) => a - b),
+          drivers: (state.participants.participants || []).map(p => ({
+            teamId: p.teamId, driverId: p.driverId, name: p.name,
+          })),
+        }
+      : null,
+  });
+});
+
+// Raw bytes of the most recent packet of a given id, base64. Exists so a struct
+// whose 2026 layout isn't decoded yet can still be inspected against live data
+// rather than guessed at from a spec transcription.
+app.get('/api/diag/sample/:packetId', (req, res) => {
+  const buf = diag.samples[Number(req.params.packetId)];
+  if (!buf) return res.status(404).json({ error: 'no packet of that id seen yet' });
+  res.json({
+    packetId: Number(req.params.packetId),
+    name: PACKET_NAMES[req.params.packetId] || `id ${req.params.packetId}`,
+    bytes: buf.length,
+    packetFormat: buf.readUInt16LE(0),
+    base64: buf.toString('base64'),
   });
 });
 
@@ -1071,8 +1282,18 @@ const udp = dgram.createSocket({ type: 'udp4', reuseAddr: true });
 let packetCount = 0;
 
 udp.on('message', msg => {
+  // Sample the raw wire first — parsePacket() returns null on a layout it can't
+  // decode, so anything measured after it would miss exactly the packets we most
+  // need to see when a game update moves fields around.
+  const seen = recordPacket(msg);
+
   const packet = parsePacket(msg);
-  if (!packet) return;
+  if (!packet) {
+    diag.unparsed++;
+    return;
+  }
+  if (seen) seen.parsed++;
+  recordSemantics(packet);
 
   packetCount++;
   if (packetCount % 1000 === 0) {
@@ -1130,6 +1351,11 @@ udp.on('message', msg => {
       if (recorder.getStatus().isRecording) {
         recorder.updateAllCarsLapData(packet.data, state.carStatus, state.session);
       }
+      break;
+
+    case PACKET_IDS.CAR_TELEMETRY2:
+      state.carTelemetry2 = packet.data;
+      broadcast('carTelemetry2', packet.data);
       break;
 
     case PACKET_IDS.PARTICIPANTS:

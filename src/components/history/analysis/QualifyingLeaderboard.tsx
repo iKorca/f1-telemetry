@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { SessionDetail, CarLap, Participant } from '@shared/types';
 import { fmtTime, fmtSector, fmtDelta } from '@/lib/formatters';
-import { getTeamColor } from '@/lib/colors';
+import { driverColor } from '@/lib/colors';
 import styles from './QualifyingLeaderboard.module.css';
 
 interface Props {
@@ -207,7 +207,7 @@ export default function QualifyingLeaderboard({ session, onOpenTelemetry }: Prop
           {rows.map((r, pos) => {
             const isOpen = expanded.has(r.idx);
             const gap = pos === 0 ? 'P1' : `+${fmtDelta(r.bestLapMs - leaderBest)}`;
-            const teamColor = getTeamColor(r.participant.teamId);
+            const teamColor = driverColor(r.participant);
             return (
               <React.Fragment key={r.idx}>
                 <tr
